@@ -29,6 +29,8 @@ import {
   Trash2,
   Edit3,
   Lock,
+  Link,
+  Loader2,
 } from 'lucide-react'
 
 export default function ListManage() {
@@ -54,6 +56,10 @@ export default function ListManage() {
   const [itemImage, setItemImage] = useState('')
   const [isGroupGift, setIsGroupGift] = useState(false)
   const [targetPrice, setTargetPrice] = useState('')
+
+  // URL import state
+  const [importUrl, setImportUrl] = useState('')
+  const [importError, setImportError] = useState('')
 
   // Settings form state
   const [settingsTitle, setSettingsTitle] = useState('')
@@ -108,6 +114,25 @@ export default function ListManage() {
     },
   })
 
+  const scrapeUrl = trpc.scrape.scrapeUrl.useMutation({
+    onSuccess: (data) => {
+      if (data.name) setItemName(data.name)
+      if (data.price != null) setItemPrice(String(data.price))
+      if (data.imageUrl) setItemImage(data.imageUrl)
+      if (data.purchaseUrl) setItemUrl(data.purchaseUrl)
+      setImportError('')
+    },
+    onError: (err) => {
+      setImportError(err.message || 'Could not read that page. Fill in the fields manually.')
+    },
+  })
+
+  function handleImport() {
+    if (!importUrl.trim()) return
+    setImportError('')
+    scrapeUrl.mutate({ url: importUrl.trim() })
+  }
+
   function resetItemForm() {
     setItemName('')
     setItemPrice('')
@@ -117,6 +142,8 @@ export default function ListManage() {
     setItemImage('')
     setIsGroupGift(false)
     setTargetPrice('')
+    setImportUrl('')
+    setImportError('')
   }
 
   function openEditItem(item: any) {
@@ -481,6 +508,39 @@ export default function ListManage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {!editItemOpen && (
+              <div className="rounded-lg bg-[#F5F1EC] p-3 space-y-2">
+                <Label className="text-xs font-medium text-[#6B6058] uppercase tracking-wider">
+                  Import from a link
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Paste a product URL…"
+                    value={importUrl}
+                    onChange={(e) => { setImportUrl(e.target.value); setImportError('') }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleImport()}
+                    className="bg-white border-[#E8E2DA] focus-visible:ring-[#C67C5A] text-sm"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleImport}
+                    disabled={!importUrl.trim() || scrapeUrl.isPending}
+                    className="bg-[#C67C5A] text-white hover:bg-[#B56A48] shrink-0"
+                  >
+                    {scrapeUrl.isPending
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Link className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {importError && (
+                  <p className="text-xs text-[#B85450]">{importError}</p>
+                )}
+                {scrapeUrl.isSuccess && (
+                  <p className="text-xs text-[#5A8F6E]">Fields filled — edit anything below.</p>
+                )}
+              </div>
+            )}
             <div>
               <Label className="text-[#3D3632]">Item name <span className="text-[#B85450]">*</span></Label>
               <Input
