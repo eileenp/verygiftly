@@ -34,9 +34,9 @@ app.get("*", async (c) => {
   if (c.env.ASSETS) {
     const res = await c.env.ASSETS.fetch(c.req.raw);
     if (res.status === 404) {
-      // SPA fallback: serve index.html for all unmatched routes
+      // SPA fallback: serve index.html for all unmatched client-side routes
       const indexUrl = new URL("/index.html", c.req.url).toString();
-      return c.env.ASSETS.fetch(new Request(indexUrl, c.req.raw));
+      return c.env.ASSETS.fetch(new Request(indexUrl));
     }
     return res;
   }
