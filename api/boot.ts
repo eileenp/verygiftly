@@ -32,7 +32,13 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 app.get("*", async (c) => {
   if (c.env.ASSETS) {
-    return c.env.ASSETS.fetch(c.req.raw);
+    const res = await c.env.ASSETS.fetch(c.req.raw);
+    if (res.status === 404) {
+      // SPA fallback: serve index.html for all unmatched routes
+      const indexUrl = new URL("/index.html", c.req.url).toString();
+      return c.env.ASSETS.fetch(new Request(indexUrl, c.req.raw));
+    }
+    return res;
   }
   return c.notFound();
 });
