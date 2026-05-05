@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,15 +8,15 @@ import { Lock, ArrowRight } from 'lucide-react'
 
 export default function ListAccess() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const listId = Number(id)
   const navigate = useNavigate()
-  const [password, setPassword] = useState('')
+  const [password, setPassword] = useState(searchParams.get('p') ?? '')
   const [error, setError] = useState('')
   const [attempts, setAttempts] = useState(0)
 
   const verify = trpc.viewer.verifyPasswordMutation.useMutation({
     onSuccess: () => {
-      // Store password in session storage for viewer access
       sessionStorage.setItem(`list-password-${listId}`, password)
       navigate(`/lists/${listId}/view`)
     },
@@ -25,6 +25,14 @@ export default function ListAccess() {
       setAttempts((a) => a + 1)
     },
   })
+
+  // Auto-submit when password arrives via ?p= magic link
+  useEffect(() => {
+    const p = searchParams.get('p')
+    if (p && listId) {
+      verify.mutate({ id: listId, password: p })
+    }
+  }, [listId])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

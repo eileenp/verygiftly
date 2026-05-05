@@ -193,11 +193,11 @@ export default function ListManage() {
 
   function copyLinkAndPassword() {
     if (!list) return
-    const url = `${window.location.origin}/lists/${list.id}/access`
-    const text = isPasswordHashed
-      ? url
-      : `${url}\nPassword: ${list.password}`
-    navigator.clipboard.writeText(text)
+    const base = `${window.location.origin}/lists/${list.id}/access`
+    const url = isPasswordHashed
+      ? base
+      : `${base}?p=${encodeURIComponent(list.password)}`
+    navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
