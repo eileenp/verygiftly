@@ -162,10 +162,15 @@ export default function ListManage() {
     })
   }
 
+  const isPasswordHashed = list?.password?.startsWith('pbkdf2:') ?? false
+
   function copyLinkAndPassword() {
     if (!list) return
     const url = `${window.location.origin}/lists/${list.id}/access`
-    navigator.clipboard.writeText(`${url}\nPassword: ${list.password}`)
+    const text = isPasswordHashed
+      ? url
+      : `${url}\nPassword: ${list.password}`
+    navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -173,7 +178,7 @@ export default function ListManage() {
   function openSettings() {
     if (!list) return
     setSettingsTitle(list.title)
-    setSettingsPassword(list.password)
+    setSettingsPassword('')
     setSettingsZelle(list.zelle || '')
     setSettingsVenmo(list.venmo || '')
     setSettingsPaypal(list.paypal || '')
@@ -182,10 +187,11 @@ export default function ListManage() {
 
   function handleUpdateList() {
     if (!list) return
+    const newPassword = settingsPassword.trim()
     updateList.mutate({
       id: listId,
       title: settingsTitle.trim(),
-      password: settingsPassword.trim(),
+      ...(newPassword ? { password: newPassword } : {}),
       zelle: settingsZelle || undefined,
       venmo: settingsVenmo || undefined,
       paypal: settingsPaypal || undefined,
@@ -262,7 +268,7 @@ export default function ListManage() {
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-[#A39B92]" />
                   <span className="font-mono text-sm text-[#3D3632]">
-                    {showPassword ? list.password : '••••••••'}
+                    {showPassword && !isPasswordHashed ? list.password : '••••••••'}
                   </span>
                   <button
                     onClick={() => setShowPassword(!showPassword)}
@@ -598,6 +604,8 @@ export default function ListManage() {
             <div>
               <Label className="text-[#3D3632]">Password</Label>
               <Input
+                type="password"
+                placeholder="Leave blank to keep current password"
                 value={settingsPassword}
                 onChange={(e) => setSettingsPassword(e.target.value)}
                 className="mt-1 border-[#E8E2DA] focus-visible:ring-[#C67C5A]"

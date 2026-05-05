@@ -180,7 +180,9 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
 
   function copyLinkAndPassword(listId: number, password: string) {
     const url = `${window.location.origin}/lists/${listId}/access`
-    navigator.clipboard.writeText(`${url}\nPassword: ${password}`)
+    const isHashed = password.startsWith('pbkdf2:')
+    const text = isHashed ? url : `${url}\nPassword: ${password}`
+    navigator.clipboard.writeText(text)
     setCopiedId(listId)
     setTimeout(() => setCopiedId(null), 2000)
   }

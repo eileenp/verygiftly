@@ -106,7 +106,7 @@ export function createOAuthCallbackHandler() {
         maxAge: Session.maxAgeMs / 1000,
       });
 
-      return c.redirect("/", 302);
+      return c.redirect("/dashboard", 302);
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       return c.json({ error: "OAuth callback failed" }, 500);

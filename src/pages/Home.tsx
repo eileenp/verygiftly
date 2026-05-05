@@ -1,10 +1,19 @@
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Navbar } from '@/components/Navbar'
 import { ListChecks, Share2, Gift, Eye, Users, ClipboardCheck } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function Home() {
   const navigate = useNavigate()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, isLoading, navigate])
 
   const steps = [
     {
