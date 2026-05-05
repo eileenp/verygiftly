@@ -205,7 +205,7 @@ export default function ListManage() {
   function openSettings() {
     if (!list) return
     setSettingsTitle(list.title)
-    setSettingsPassword('')
+    setSettingsPassword(isPasswordHashed ? '' : list.password)
     setSettingsZelle(list.zelle || '')
     setSettingsVenmo(list.venmo || '')
     setSettingsPaypal(list.paypal || '')
@@ -664,12 +664,16 @@ export default function ListManage() {
             <div>
               <Label className="text-[#3D3632]">Password</Label>
               <Input
-                type="password"
-                placeholder="Leave blank to keep current password"
+                placeholder={isPasswordHashed ? 'Enter a new password' : 'List password'}
                 value={settingsPassword}
                 onChange={(e) => setSettingsPassword(e.target.value)}
                 className="mt-1 border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
               />
+              {isPasswordHashed && (
+                <p className="mt-1 text-xs text-[#A39B92]">
+                  Previous password is encrypted — enter a new one to replace it.
+                </p>
+              )}
             </div>
             <div className="border-t border-[#E8E2DA] pt-4">
               <Label className="text-[#3D3632] text-sm">Payment handles</Label>

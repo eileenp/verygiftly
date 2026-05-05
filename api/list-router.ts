@@ -3,7 +3,6 @@ import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { lists, coOwners, listItems, users } from "@db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { hashPassword } from "./lib/password";
 
 export const listRouter = createRouter({
   // Create a new list
@@ -21,7 +20,7 @@ export const listRouter = createRouter({
       const db = getDb();
       const result = await db.insert(lists).values({
         title: input.title,
-        password: await hashPassword(input.password),
+        password: input.password,
         ownerId: ctx.user.id,
         zelle: input.zelle || null,
         venmo: input.venmo || null,
@@ -92,7 +91,7 @@ export const listRouter = createRouter({
 
       const updateData: Record<string, unknown> = {};
       if (input.title !== undefined) updateData.title = input.title;
-      if (input.password !== undefined) updateData.password = await hashPassword(input.password);
+      if (input.password !== undefined) updateData.password = input.password;
       if (input.zelle !== undefined) updateData.zelle = input.zelle || null;
       if (input.venmo !== undefined) updateData.venmo = input.venmo || null;
       if (input.paypal !== undefined) updateData.paypal = input.paypal || null;
