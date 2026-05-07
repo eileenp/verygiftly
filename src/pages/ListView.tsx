@@ -238,8 +238,11 @@ export default function ListView() {
             if (isFullyClaimed && !isClaimedByMe && !showClaimed && !isGroup) return null
 
             return (
-              <Card key={item.id} className={`border-[#E8E2DA] ${isClaimedByMe ? 'bg-[#5A8F6E]/5 border-[#5A8F6E]/30' : 'bg-white'} ${isFullyClaimed && !isClaimedByMe ? 'opacity-70' : ''}`}>
-                <CardContent className="p-5">
+              <Card key={item.id} className={`border-[#E8E2DA] overflow-hidden ${isFullyClaimed && !isClaimedByMe ? 'opacity-70' : ''}`}>
+                <CardContent className="p-0">
+                  <div className="flex">
+                    {isClaimedByMe && <div className="w-1.5 bg-[#5A8F6E] flex-shrink-0" />}
+                    <div className={`p-5 flex-1 ${isClaimedByMe ? 'bg-[#5A8F6E]/5' : 'bg-white'}`}>
                   <div className="flex gap-4">
                     <div className="h-24 w-24 rounded-lg bg-[#F5F1EC] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {item.imageUrl && isSafeUrl(item.imageUrl) ? (
@@ -249,22 +252,20 @@ export default function ListView() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-medium text-[#3D3632]">{item.name}</h3>
-                          <p className="text-sm text-[#6B6058]">
-                            {item.price ? `$${item.price}` : 'No price set'}
-                          </p>
-                        </div>
+                      <h3 className="font-medium text-[#3D3632]">{item.name}</h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-sm text-[#6B6058]">
+                          {item.price ? `$${item.price}` : 'No price set'}
+                        </p>
                         {item.purchaseUrl && isSafeUrl(item.purchaseUrl) && (
                           <a
                             href={item.purchaseUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-xs text-[#C67C5A] hover:underline"
+                            className="inline-flex items-center gap-1 rounded-full bg-[#F5F1EC] border border-[#E8E2DA] px-2.5 py-0.5 text-xs font-medium text-[#6B6058] hover:bg-[#EDE9E2] transition-colors"
                           >
-                            <ExternalLink className="mr-1 h-3 w-3" />
-                            View
+                            <ExternalLink className="h-3 w-3" />
+                            Purchase
                           </a>
                         )}
                       </div>
@@ -329,6 +330,8 @@ export default function ListView() {
                           Claim this
                         </Button>
                       )}
+                    </div>
+                  </div>
                     </div>
                   </div>
                 </CardContent>
