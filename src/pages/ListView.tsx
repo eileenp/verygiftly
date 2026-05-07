@@ -46,10 +46,14 @@ export default function ListView() {
   const [quickAmount, setQuickAmount] = useState<number | null>(null)
   const [hasPaid, setHasPaid] = useState(false)
 
-  // Get stored password
+  const [viewerEmail, setViewerEmail] = useState('')
+
+  // Get stored password and viewer email
   useEffect(() => {
     const stored = sessionStorage.getItem(`list-password-${listId}`)
     if (stored) setPassword(stored)
+    const email = sessionStorage.getItem('viewer-email')
+    if (email) setViewerEmail(email)
   }, [listId])
 
   const { data: list, isLoading, error } = trpc.viewer.getList.useQuery(
@@ -93,10 +97,13 @@ export default function ListView() {
 
   function handleClaim() {
     if (!selectedItem || !claimerName.trim() || !claimerEmail.trim()) return
+    const email = claimerEmail.trim()
+    sessionStorage.setItem('viewer-email', email)
+    setViewerEmail(email)
     claimItem.mutate({
       itemId: selectedItem.id,
       name: claimerName.trim(),
-      email: claimerEmail.trim(),
+      email,
     })
   }
 
@@ -211,20 +218,27 @@ export default function ListView() {
         )}
 
         <div className="space-y-4">
-          {list.items?.map((item: any) => {
+          {[...(list.items ?? [])].sort((a: any, b: any) => {
+            const aMine = viewerEmail && a.claims?.some((c: any) => c.email === viewerEmail)
+            const bMine = viewerEmail && b.claims?.some((c: any) => c.email === viewerEmail)
+            if (aMine && !bMine) return -1
+            if (!aMine && bMine) return 1
+            return 0
+          }).map((item: any) => {
             const claims = item.claims || []
             const contributions = item.contributions || []
             const isFullyClaimed = !item.isGroupGift && claims.length >= item.quantity
             const isPurchased = claims.some((c: any) => c.purchased)
             const isGroup = item.isGroupGift
+            const isClaimedByMe = !!viewerEmail && claims.some((c: any) => c.email === viewerEmail)
             const totalContributed = contributions.reduce((acc: number, c: any) => acc + parseFloat(c.amount || 0), 0)
             const target = item.targetPrice ? parseFloat(item.targetPrice) : 0
             const progress = target > 0 ? Math.min((totalContributed / target) * 100, 100) : 0
 
-            if (isFullyClaimed && !showClaimed && !isGroup) return null
+            if (isFullyClaimed && !isClaimedByMe && !showClaimed && !isGroup) return null
 
             return (
-              <Card key={item.id} className={`border-[#E8E2DA] bg-white ${isFullyClaimed ? 'opacity-70' : ''}`}>
+              <Card key={item.id} className={`border-[#E8E2DA] ${isClaimedByMe ? 'bg-[#5A8F6E]/5 border-[#5A8F6E]/30' : 'bg-white'} ${isFullyClaimed && !isClaimedByMe ? 'opacity-70' : ''}`}>
                 <CardContent className="p-5">
                   <div className="flex gap-4">
                     <div className="h-24 w-24 rounded-lg bg-[#F5F1EC] flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -260,12 +274,18 @@ export default function ListView() {
                       )}
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {isClaimedByMe && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#5A8F6E] px-2.5 py-0.5 text-xs font-medium text-white">
+                            <Check className="h-3 w-3" />
+                            Claimed by you
+                          </span>
+                        )}
                         {isGroup && (
                           <span className="inline-flex items-center rounded-full bg-[#8FA98F]/10 px-2.5 py-0.5 text-xs font-medium text-[#5A8F6E]">
                             Group gift
                           </span>
                         )}
-                        {isFullyClaimed && !isGroup && (
+                        {isFullyClaimed && !isGroup && !isClaimedByMe && (
                           <span className="inline-flex items-center rounded-full bg-[#C67C5A]/10 px-2.5 py-0.5 text-xs font-medium text-[#C67C5A]">
                             Claimed
                           </span>
@@ -300,7 +320,7 @@ export default function ListView() {
                         </div>
                       )}
 
-                      {!isGroup && !isFullyClaimed && (
+                      {!isGroup && !isFullyClaimed && !isClaimedByMe && (
                         <Button
                           size="sm"
                           onClick={() => openClaim(item)}
