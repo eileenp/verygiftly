@@ -52,7 +52,7 @@ export default function ListView() {
   useEffect(() => {
     const stored = sessionStorage.getItem(`list-password-${listId}`)
     if (stored) setPassword(stored)
-    const email = sessionStorage.getItem('viewer-email')
+    const email = localStorage.getItem('viewer-email')
     if (email) setViewerEmail(email)
   }, [listId])
 
@@ -61,10 +61,13 @@ export default function ListView() {
     { enabled: !!password, retry: false }
   )
 
+  const utils = trpc.useUtils()
+
   const claimItem = trpc.viewer.claim.useMutation({
     onSuccess: (data) => {
       setClaimSuccess(true)
       if (data) setClaimResult({ id: data.id, token: data.token ?? null })
+      utils.viewer.getList.invalidate({ id: listId, password })
     },
   })
 
@@ -98,7 +101,7 @@ export default function ListView() {
   function handleClaim() {
     if (!selectedItem || !claimerName.trim() || !claimerEmail.trim()) return
     const email = claimerEmail.trim()
-    sessionStorage.setItem('viewer-email', email)
+    localStorage.setItem('viewer-email', email)
     setViewerEmail(email)
     claimItem.mutate({
       itemId: selectedItem.id,
