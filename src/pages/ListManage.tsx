@@ -439,7 +439,7 @@ export default function ListManage() {
                             className="inline-flex items-center text-xs text-[#C67C5A] hover:underline"
                           >
                             <ExternalLink className="mr-1 h-3 w-3" />
-                            View on site
+                            Purchase
                           </a>
                         )}
                       </div>
