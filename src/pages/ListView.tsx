@@ -47,13 +47,19 @@ export default function ListView() {
   const [hasPaid, setHasPaid] = useState(false)
 
   const [viewerEmail, setViewerEmail] = useState('')
+  // Map of itemId → { claimId, token } stored locally so user can unclaim
+  const [myClaimTokens, setMyClaimTokens] = useState<Record<number, { claimId: number; token: string }>>({})
 
-  // Get stored password and viewer email
+  // Get stored password, viewer email, and any saved claim tokens
   useEffect(() => {
     const stored = sessionStorage.getItem(`list-password-${listId}`)
     if (stored) setPassword(stored)
     const email = localStorage.getItem('viewer-email')
     if (email) setViewerEmail(email)
+    const tokens = localStorage.getItem('claim-tokens')
+    if (tokens) {
+      try { setMyClaimTokens(JSON.parse(tokens)) } catch {}
+    }
   }, [listId])
 
   const { data: list, isLoading, error } = trpc.viewer.getList.useQuery(
@@ -66,7 +72,35 @@ export default function ListView() {
   const claimItem = trpc.viewer.claim.useMutation({
     onSuccess: (data) => {
       setClaimSuccess(true)
-      if (data) setClaimResult({ id: data.id, token: data.token ?? null })
+      if (data) {
+        setClaimResult({ id: data.id, token: data.token ?? null })
+        // Persist token so user can unclaim from the card later
+        if (data.token && selectedItem) {
+          setMyClaimTokens(prev => {
+            const updated = { ...prev, [selectedItem.id]: { claimId: data.id, token: data.token! } }
+            localStorage.setItem('claim-tokens', JSON.stringify(updated))
+            return updated
+          })
+        }
+      }
+      utils.viewer.getList.invalidate({ id: listId, password })
+    },
+  })
+
+  const unclaimItem = trpc.viewer.unclaim.useMutation({
+    onSuccess: (_data, vars) => {
+      // Remove from local token map
+      setMyClaimTokens(prev => {
+        const updated = { ...prev }
+        // Find and delete the entry with matching claimId
+        for (const itemId in updated) {
+          if (updated[Number(itemId)].claimId === vars.claimId) {
+            delete updated[Number(itemId)]
+          }
+        }
+        localStorage.setItem('claim-tokens', JSON.stringify(updated))
+        return updated
+      })
       utils.viewer.getList.invalidate({ id: listId, password })
     },
   })
@@ -279,10 +313,24 @@ export default function ListView() {
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         {isClaimedByMe && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#5A8F6E] px-2.5 py-0.5 text-xs font-medium text-white">
-                            <Check className="h-3 w-3" />
-                            Claimed by you
-                          </span>
+                          <>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#5A8F6E] px-2.5 py-0.5 text-xs font-medium text-white">
+                              <Check className="h-3 w-3" />
+                              Claimed by you
+                            </span>
+                            {myClaimTokens[item.id] && (
+                              <button
+                                onClick={() => {
+                                  const { claimId, token } = myClaimTokens[item.id]
+                                  unclaimItem.mutate({ claimId, token })
+                                }}
+                                disabled={unclaimItem.isPending}
+                                className="text-xs text-[#A39B92] hover:text-[#B85450] underline transition-colors"
+                              >
+                                Unclaim
+                              </button>
+                            )}
+                          </>
                         )}
                         {isGroup && (
                           <span className="inline-flex items-center rounded-full bg-[#8FA98F]/10 px-2.5 py-0.5 text-xs font-medium text-[#5A8F6E]">
