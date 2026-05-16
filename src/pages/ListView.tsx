@@ -256,8 +256,8 @@ export default function ListView() {
 
         <div className="space-y-4">
           {[...(list.items ?? [])].sort((a: any, b: any) => {
-            const aMine = viewerEmail && a.claims?.some((c: any) => c.email === viewerEmail)
-            const bMine = viewerEmail && b.claims?.some((c: any) => c.email === viewerEmail)
+            const aMine = !!myClaimTokens[a.id] || (viewerEmail && a.claims?.some((c: any) => c.email === viewerEmail))
+            const bMine = !!myClaimTokens[b.id] || (viewerEmail && b.claims?.some((c: any) => c.email === viewerEmail))
             if (aMine && !bMine) return -1
             if (!aMine && bMine) return 1
             return 0
@@ -267,7 +267,7 @@ export default function ListView() {
             const isFullyClaimed = !item.isGroupGift && claims.length >= item.quantity
             const isPurchased = claims.some((c: any) => c.purchased)
             const isGroup = item.isGroupGift
-            const isClaimedByMe = !!viewerEmail && claims.some((c: any) => c.email === viewerEmail)
+            const isClaimedByMe = !!myClaimTokens[item.id] || (!!viewerEmail && claims.some((c: any) => c.email === viewerEmail))
             const totalContributed = contributions.reduce((acc: number, c: any) => acc + parseFloat(c.amount || 0), 0)
             const target = item.targetPrice ? parseFloat(item.targetPrice) : 0
             const progress = target > 0 ? Math.min((totalContributed / target) * 100, 100) : 0
