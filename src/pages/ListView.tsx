@@ -49,6 +49,8 @@ export default function ListView() {
   const [viewerEmail, setViewerEmail] = useState('')
   // Map of itemId → { claimId, token } stored locally so user can unclaim
   const [myClaimTokens, setMyClaimTokens] = useState<Record<number, { claimId: number; token: string }>>({})
+  const [emailPrompt, setEmailPrompt] = useState('')
+  const [emailPromptDismissed, setEmailPromptDismissed] = useState(false)
 
   // Get stored password, viewer email, and any saved claim tokens
   useEffect(() => {
@@ -215,6 +217,22 @@ export default function ListView() {
   }) || []
   const allClaimed = availableItems.length === 0 && totalItems > 0 && !list.items?.some((i: any) => i.isGroupGift)
 
+  // Show the "enter your email" prompt when:
+  // – viewer hasn't identified themselves yet (no email, no local tokens)
+  // – at least one item on the list has been claimed
+  const hasAnyClaimedItems = list.items?.some((i: any) => (i.claims?.length || 0) > 0) ?? false
+  const hasLocalTokens = Object.keys(myClaimTokens).length > 0
+  const showEmailPrompt = !viewerEmail && !hasLocalTokens && hasAnyClaimedItems && !emailPromptDismissed
+
+  function handleEmailPromptSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const email = emailPrompt.trim()
+    if (!email) return
+    localStorage.setItem('viewer-email', email)
+    setViewerEmail(email)
+    setEmailPromptDismissed(true)
+  }
+
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
       <nav className="sticky top-0 z-50 w-full border-b border-[#E8E2DA]/50 bg-[#FDFBF7]/85 backdrop-blur-xl">
@@ -252,6 +270,37 @@ export default function ListView() {
               </Button>
             </CardContent>
           </Card>
+        )}
+
+        {showEmailPrompt && (
+          <div className="mb-4 rounded-xl border border-[#E8E2DA] bg-white px-5 py-4">
+            <p className="text-sm font-medium text-[#3D3632]">Already claimed something?</p>
+            <p className="mt-0.5 text-xs text-[#A39B92]">Enter your email to see your claimed items at the top.</p>
+            <form onSubmit={handleEmailPromptSubmit} className="mt-3 flex gap-2">
+              <Input
+                type="email"
+                placeholder="your@email.com"
+                value={emailPrompt}
+                onChange={(e) => setEmailPrompt(e.target.value)}
+                className="h-8 text-sm border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!emailPrompt.trim()}
+                className="h-8 bg-[#C67C5A] text-white hover:bg-[#B56A48] shrink-0"
+              >
+                Show mine
+              </Button>
+              <button
+                type="button"
+                onClick={() => setEmailPromptDismissed(true)}
+                className="text-xs text-[#A39B92] hover:text-[#6B6058] shrink-0"
+              >
+                Dismiss
+              </button>
+            </form>
+          </div>
         )}
 
         <div className="space-y-4">
