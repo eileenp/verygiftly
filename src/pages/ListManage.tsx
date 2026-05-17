@@ -114,6 +114,12 @@ export default function ListManage() {
     },
   })
 
+  const deleteClaim = trpc.list.deleteClaim.useMutation({
+    onSuccess: () => {
+      utils.list.get.invalidate({ id: listId })
+    },
+  })
+
   const scrapeUrl = trpc.scrape.scrapeUrl.useMutation({
     onSuccess: (data) => {
       if (data.name) setItemName(data.name)
@@ -446,14 +452,27 @@ export default function ListManage() {
 
                       {/* Owner-only claim details */}
                       {claims.length > 0 && !isGroup && (
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-1.5">
                           {claims.map((claim: any) => (
-                            <div key={claim.id} className="flex items-center gap-2 text-xs">
-                              <span className={`inline-block h-2 w-2 rounded-full ${claim.purchased ? 'bg-[#5A8F6E]' : 'bg-[#C67C5A]'}`} />
-                              <span className="text-[#6B6058]">
-                                {claim.name} ({claim.email})
-                                {claim.purchased && ' — purchased'}
-                              </span>
+                            <div key={claim.id} className="flex items-center justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${claim.purchased ? 'bg-[#5A8F6E]' : 'bg-[#C67C5A]'}`} />
+                                <span className="text-[#6B6058] truncate">
+                                  {claim.name} ({claim.email})
+                                  {claim.purchased && ' — purchased'}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Revoke claim by ${claim.name}?`)) {
+                                    deleteClaim.mutate({ claimId: claim.id })
+                                  }
+                                }}
+                                disabled={deleteClaim.isPending}
+                                className="shrink-0 text-[#A39B92] hover:text-[#B85450] underline transition-colors"
+                              >
+                                Revoke
+                              </button>
                             </div>
                           ))}
                         </div>

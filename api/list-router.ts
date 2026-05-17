@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { lists, coOwners, listItems, users } from "@db/schema";
+import { lists, coOwners, listItems, users, claims } from "@db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
 export const listRouter = createRouter({
@@ -161,6 +161,25 @@ export const listRouter = createRouter({
             eq(coOwners.userId, input.userId),
           ),
         );
+      return { success: true };
+    }),
+
+  // Owner revokes a claim on one of their list items
+  deleteClaim: authedQuery
+    .input(z.object({ claimId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      // Verify the claim belongs to an item in a list owned by this user
+      const claim = await db.query.claims.findFirst({
+        where: eq(claims.id, input.claimId),
+        with: { item: { with: { list: true } } },
+      });
+      if (!claim) throw new Error("Claim not found");
+      if ((claim as any).item?.list?.ownerId !== ctx.user.id) {
+        const { TRPCError } = await import("@trpc/server");
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not your list" });
+      }
+      await db.delete(claims).where(eq(claims.id, input.claimId));
       return { success: true };
     }),
 
