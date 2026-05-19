@@ -25,6 +25,7 @@ export default function ListView() {
   const { id } = useParams<{ id: string }>()
   const listId = Number(id)
   const [password, setPassword] = useState('')
+  const [liveMsg, setLiveMsg] = useState('')
   const [claimOpen, setClaimOpen] = useState(false)
   const [contributeOpen, setContributeOpen] = useState(false)
   const [claimSuccess, setClaimSuccess] = useState(false)
@@ -74,9 +75,9 @@ export default function ListView() {
   const claimItem = trpc.viewer.claim.useMutation({
     onSuccess: (data) => {
       setClaimSuccess(true)
+      setLiveMsg('Item claimed successfully')
       if (data) {
         setClaimResult({ id: data.id, token: data.token ?? null })
-        // Persist token so user can unclaim from the card later
         if (data.token && selectedItem) {
           setMyClaimTokens(prev => {
             const updated = { ...prev, [selectedItem.id]: { claimId: data.id, token: data.token! } }
@@ -91,10 +92,9 @@ export default function ListView() {
 
   const unclaimItem = trpc.viewer.unclaim.useMutation({
     onSuccess: (_data, vars) => {
-      // Remove from local token map
+      setLiveMsg('Item unclaimed')
       setMyClaimTokens(prev => {
         const updated = { ...prev }
-        // Find and delete the entry with matching claimId
         for (const itemId in updated) {
           if (updated[Number(itemId)].claimId === vars.claimId) {
             delete updated[Number(itemId)]
@@ -110,6 +110,7 @@ export default function ListView() {
   const contributeItem = trpc.viewer.contribute.useMutation({
     onSuccess: (data) => {
       setContributeSuccess(true)
+      setLiveMsg('Contribution recorded')
       if (data) setContributeResult({ id: data.id, token: data.token ?? null })
     },
   })
@@ -241,6 +242,7 @@ export default function ListView() {
         </div>
       </nav>
 
+      <div role="status" aria-live="polite" className="sr-only">{liveMsg}</div>
       <main className="mx-auto max-w-3xl px-6 py-8">
         <div className="mb-2">
           <p className="text-xs text-[#A39B92] uppercase tracking-wider">Gift list for</p>
@@ -295,7 +297,7 @@ export default function ListView() {
               <button
                 type="button"
                 onClick={() => setEmailPromptDismissed(true)}
-                className="text-xs text-[#A39B92] hover:text-[#6B6058] shrink-0"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-xs text-[#A39B92] hover:text-[#6B6058] shrink-0"
               >
                 Dismiss
               </button>
@@ -327,12 +329,11 @@ export default function ListView() {
               <Card key={item.id} className={`border-[#E8E2DA] overflow-hidden ${isFullyClaimed && !isClaimedByMe ? 'opacity-70' : ''}`}>
                 <CardContent className="p-0">
                   <div className="flex">
-                    {isClaimedByMe && <div className="w-1.5 bg-[#5A8F6E] flex-shrink-0" />}
-                    <div className={`p-5 flex-1 ${isClaimedByMe ? 'bg-[#5A8F6E]/5' : 'bg-white'}`}>
+                    <div className={`p-5 flex-1 ${isClaimedByMe ? 'bg-[#5A8F6E]/10' : 'bg-white'}`}>
                   <div className="flex gap-4">
                     <div className="h-24 w-24 rounded-lg bg-[#F5F1EC] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {item.imageUrl && isSafeUrl(item.imageUrl) ? (
-                        <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                        <img src={item.imageUrl} alt={item.name} loading="lazy" width={96} height={96} className="h-full w-full object-cover" />
                       ) : (
                         <Gift className="h-8 w-8 text-[#A39B92]" />
                       )}
@@ -369,12 +370,13 @@ export default function ListView() {
                             </span>
                             {myClaimTokens[item.id] && (
                               <button
+                                type="button"
                                 onClick={() => {
                                   const { claimId, token } = myClaimTokens[item.id]
                                   unclaimItem.mutate({ claimId, token })
                                 }}
                                 disabled={unclaimItem.isPending}
-                                className="text-xs text-[#A39B92] hover:text-[#B85450] underline transition-colors"
+                                className="inline-flex min-h-[44px] items-center px-1 text-xs text-[#A39B92] hover:text-[#B85450] underline transition-colors"
                               >
                                 Unclaim
                               </button>
@@ -461,16 +463,18 @@ export default function ListView() {
                 </p>
               </div>
               <div>
-                <Label className="text-[#3D3632]">Your name <span className="text-[#B85450]">*</span></Label>
+                <Label htmlFor="claimer-name" className="text-[#3D3632]">Your name <span className="text-[#B85450]">*</span></Label>
                 <Input
+                  id="claimer-name"
                   value={claimerName}
                   onChange={(e) => setClaimerName(e.target.value)}
                   className="mt-1 border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
                 />
               </div>
               <div>
-                <Label className="text-[#3D3632]">Your email <span className="text-[#B85450]">*</span></Label>
+                <Label htmlFor="claimer-email" className="text-[#3D3632]">Your email <span className="text-[#B85450]">*</span></Label>
                 <Input
+                  id="claimer-email"
                   type="email"
                   value={claimerEmail}
                   onChange={(e) => setClaimerEmail(e.target.value)}
@@ -573,16 +577,18 @@ export default function ListView() {
                 </div>
               )}
               <div>
-                <Label className="text-[#3D3632]">Your name <span className="text-[#B85450]">*</span></Label>
+                <Label htmlFor="contributor-name" className="text-[#3D3632]">Your name <span className="text-[#B85450]">*</span></Label>
                 <Input
+                  id="contributor-name"
                   value={contributorName}
                   onChange={(e) => setContributorName(e.target.value)}
                   className="mt-1 border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
                 />
               </div>
               <div>
-                <Label className="text-[#3D3632]">Your email <span className="text-[#B85450]">*</span></Label>
+                <Label htmlFor="contributor-email" className="text-[#3D3632]">Your email <span className="text-[#B85450]">*</span></Label>
                 <Input
+                  id="contributor-email"
                   type="email"
                   value={contributorEmail}
                   onChange={(e) => setContributorEmail(e.target.value)}
@@ -590,7 +596,7 @@ export default function ListView() {
                 />
               </div>
               <div>
-                <Label className="text-[#3D3632]">Amount</Label>
+                <Label htmlFor="contributor-amount" className="text-[#3D3632]">Amount</Label>
                 <div className="mt-1 flex gap-2">
                   {[25, 50, 100].map((amt) => (
                     <button
@@ -607,6 +613,7 @@ export default function ListView() {
                   ))}
                 </div>
                 <Input
+                  id="contributor-amount"
                   type="number"
                   step="0.01"
                   placeholder="Custom amount"

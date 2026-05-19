@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift } from "lucide-react";
@@ -43,16 +44,19 @@ export default function Login() {
             </Button>
             <p className="mt-6 text-center text-xs text-[#A39B92]">
               By signing in, you agree to our{" "}
-              <span className="underline cursor-pointer">Terms of Service</span> and{" "}
-              <span className="underline cursor-pointer">Privacy Policy</span>.
+              <Link to="/terms" className="underline hover:text-[#6B6058]">Terms of Service</Link> and{" "}
+              <Link to="/privacy" className="underline hover:text-[#6B6058]">Privacy Policy</Link>.
             </p>
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-sm text-[#6B6058]">
           Don't have an account?{" "}
-          <span className="text-[#C67C5A] cursor-pointer hover:underline" onClick={() => window.location.href = getOAuthUrl()}>
+          <a
+            href={getOAuthUrl()}
+            className="text-[#C67C5A] hover:underline"
+          >
             Create one
-          </span>
+          </a>
         </p>
       </div>
     </div>

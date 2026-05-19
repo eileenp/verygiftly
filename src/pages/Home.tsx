@@ -97,13 +97,13 @@ export default function Home() {
           <h2 className="text-center font-serif text-3xl font-semibold text-[#3D3632]">
             How it works
           </h2>
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
+          <div className="mt-16 grid gap-10 md:grid-cols-3">
             {steps.map((step, i) => (
-              <div
-                key={i}
-                className="flex flex-col items-center rounded-2xl bg-white p-8 text-center shadow-sm"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C67C5A]/10 text-[#C67C5A]">
+              <div key={i} className="flex flex-col">
+                <span className="font-serif text-8xl font-bold leading-none text-[#C67C5A]/15 select-none">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div className="mt-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#C67C5A]/10 text-[#C67C5A]">
                   {step.icon}
                 </div>
                 <h3 className="mt-4 font-serif text-xl font-semibold text-[#3D3632]">
@@ -119,19 +119,21 @@ export default function Home() {
       {/* Features */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-center font-serif text-3xl font-semibold text-[#3D3632]">
+          <h2 className="font-serif text-3xl font-semibold text-[#3D3632]">
             Everything you need
           </h2>
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
+          <div className="mt-10 divide-y divide-[#E8E2DA]">
             {features.map((feat, i) => (
-              <div key={i} className="flex flex-col items-start rounded-2xl bg-white p-6 shadow-sm border border-[#E8E2DA]/50">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#8FA98F]/10 text-[#8FA98F]">
+              <div key={i} className="flex items-start gap-6 py-8 md:items-center">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#8FA98F]/10 text-[#8FA98F]">
                   {feat.icon}
                 </div>
-                <h3 className="mt-4 font-serif text-lg font-semibold text-[#3D3632]">
-                  {feat.title}
-                </h3>
-                <p className="mt-2 text-sm text-[#6B6058]">{feat.description}</p>
+                <div className="flex flex-1 flex-col md:flex-row md:items-center md:gap-10">
+                  <h3 className="min-w-[200px] font-serif text-lg font-semibold text-[#3D3632]">
+                    {feat.title}
+                  </h3>
+                  <p className="mt-1 text-[#6B6058] md:mt-0">{feat.description}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -167,9 +169,9 @@ export default function Home() {
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm text-[#A39B92]">
               <Link to="/privacy" className="hover:text-[#FDFBF7]">Privacy Policy</Link>
-              <span className="hover:text-[#FDFBF7] cursor-pointer">Terms of Service</span>
-              <span className="hover:text-[#FDFBF7] cursor-pointer">Accessibility</span>
-              <span className="hover:text-[#FDFBF7] cursor-pointer">Cookies</span>
+              <Link to="/terms" className="hover:text-[#FDFBF7]">Terms of Service</Link>
+              <Link to="/accessibility" className="hover:text-[#FDFBF7]">Accessibility</Link>
+              <Link to="/cookies" className="hover:text-[#FDFBF7]">Cookies</Link>
             </div>
           </div>
           <p className="mt-8 text-center text-xs text-[#6B6058]">

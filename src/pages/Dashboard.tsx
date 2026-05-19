@@ -83,6 +83,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
   const [activeTab, setActiveTab] = useState<'lists' | 'items'>(tab)
   const [createOpen, setCreateOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [liveMsg, setLiveMsg] = useState('')
 
   // Master view: multi-select
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -131,6 +132,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
       setNewListZelle('')
       setNewListVenmo('')
       setNewListPaypal('')
+      setLiveMsg('List created')
     },
   })
 
@@ -138,6 +140,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
     onSuccess: () => {
       utils.list.allItems.invalidate()
       setSelectedIds(new Set())
+      setLiveMsg('Items moved')
     },
   })
 
@@ -145,6 +148,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
     onSuccess: () => {
       utils.list.allItems.invalidate()
       setSelectedIds(new Set())
+      setLiveMsg('Items copied')
     },
   })
 
@@ -152,6 +156,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
     onSuccess: () => {
       utils.list.allItems.invalidate()
       setSelectedIds(new Set())
+      setLiveMsg('Items deleted')
     },
   })
 
@@ -159,6 +164,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
     onSuccess: () => {
       utils.list.allItems.invalidate()
       setDeletingItemId(null)
+      setLiveMsg('Item removed')
     },
   })
 
@@ -166,6 +172,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
     onSuccess: () => {
       utils.list.allItems.invalidate()
       setEditingId(null)
+      setLiveMsg('Item saved')
     },
   })
 
@@ -217,6 +224,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
     <div className="min-h-screen bg-[#FDFBF7]">
       <Navbar />
 
+      <div role="status" aria-live="polite" className="sr-only">{liveMsg}</div>
       <main className="mx-auto max-w-5xl px-6 py-8">
         <Tabs value={activeTab} onValueChange={(v) => {
           setActiveTab(v as 'lists' | 'items')
@@ -453,9 +461,9 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
               {!!items.length && (
                 <>
                   {/* Filter + sort controls */}
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
                     <Select value={filterListId} onValueChange={setFilterListId}>
-                      <SelectTrigger className="w-[180px] border-[#E8E2DA] bg-white text-sm h-9">
+                      <SelectTrigger className="min-w-[120px] flex-1 sm:flex-none sm:w-[180px] border-[#E8E2DA] bg-white text-sm h-9">
                         <SelectValue placeholder="All lists" />
                       </SelectTrigger>
                       <SelectContent>
@@ -467,7 +475,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
                     </Select>
 
                     <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-                      <SelectTrigger className="w-[160px] border-[#E8E2DA] bg-white text-sm h-9">
+                      <SelectTrigger className="min-w-[110px] flex-1 sm:flex-none sm:w-[160px] border-[#E8E2DA] bg-white text-sm h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -483,11 +491,10 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
                     <div className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-[#6B6058]">
                       <Checkbox
                         id="select-all"
-                        checked={allSelected}
-                        data-state={someSelected ? 'indeterminate' : allSelected ? 'checked' : 'unchecked'}
+                        checked={someSelected ? 'indeterminate' : allSelected}
                         onCheckedChange={toggleAll}
                         aria-label="Select all items"
-                        className="border-[#D4C9BF] data-[state=checked]:bg-[#C67C5A] data-[state=checked]:border-[#C67C5A]"
+                        className="border-[#D4C9BF] data-[state=checked]:bg-[#C67C5A] data-[state=checked]:border-[#C67C5A] data-[state=indeterminate]:bg-[#C67C5A] data-[state=indeterminate]:border-[#C67C5A]"
                       />
                       <label htmlFor="select-all" className="cursor-pointer select-none">
                         {allSelected ? 'Deselect all' : 'Select all'}
@@ -508,16 +515,18 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
                               <div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
                                   <div className="col-span-2">
-                                    <Label className="text-xs text-[#6B6058]">Name</Label>
+                                    <Label htmlFor={`edit-name-${item.id}`} className="text-xs text-[#6B6058]">Name</Label>
                                     <Input
+                                      id={`edit-name-${item.id}`}
                                       value={editForm.name}
                                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                                       className="mt-1 h-8 text-sm border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-xs text-[#6B6058]">Price ($)</Label>
+                                    <Label htmlFor={`edit-price-${item.id}`} className="text-xs text-[#6B6058]">Price ($)</Label>
                                     <Input
+                                      id={`edit-price-${item.id}`}
                                       type="number"
                                       value={editForm.price}
                                       onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
@@ -525,8 +534,9 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-xs text-[#6B6058]">Qty</Label>
+                                    <Label htmlFor={`edit-qty-${item.id}`} className="text-xs text-[#6B6058]">Qty</Label>
                                     <Input
+                                      id={`edit-qty-${item.id}`}
                                       type="number"
                                       min={1}
                                       value={editForm.quantity}
@@ -535,8 +545,9 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
                                     />
                                   </div>
                                   <div className="col-span-2">
-                                    <Label className="text-xs text-[#6B6058]">Notes</Label>
+                                    <Label htmlFor={`edit-notes-${item.id}`} className="text-xs text-[#6B6058]">Notes</Label>
                                     <Input
+                                      id={`edit-notes-${item.id}`}
                                       value={editForm.notes}
                                       onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
                                       className="mt-1 h-8 text-sm border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
@@ -588,7 +599,7 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
                                 />
                                 <div className="h-14 w-14 rounded-lg bg-[#F5F1EC] flex items-center justify-center overflow-hidden flex-shrink-0">
                                   {item.imageUrl && isSafeUrl(item.imageUrl) ? (
-                                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                                    <img src={item.imageUrl} alt={item.name} loading="lazy" width={56} height={56} className="h-full w-full object-cover" />
                                   ) : (
                                     <Gift className="h-6 w-6 text-[#A39B92]" />
                                   )}
@@ -778,8 +789,9 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-[#3D3632]">List name</Label>
+              <Label htmlFor="new-list-title" className="text-[#3D3632]">List name</Label>
               <Input
+                id="new-list-title"
                 placeholder="Sarah's Birthday"
                 value={newListTitle}
                 onChange={(e) => setNewListTitle(e.target.value)}
@@ -787,16 +799,18 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
               />
             </div>
             <div>
-              <Label className="text-[#3D3632]">Password</Label>
+              <Label htmlFor="new-list-password" className="text-[#3D3632]">Password</Label>
               <Input
+                id="new-list-password"
                 placeholder="Enter a password"
                 value={newListPassword}
                 onChange={(e) => setNewListPassword(e.target.value)}
                 className="mt-1 border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
               />
               <button
+                type="button"
                 onClick={suggestPassphrase}
-                className="mt-1 text-xs text-[#C67C5A] hover:underline"
+                className="mt-1 inline-flex min-h-[36px] items-center text-xs text-[#C67C5A] hover:underline px-0 py-1"
               >
                 Suggest a passphrase
               </button>
