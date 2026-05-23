@@ -1,5 +1,4 @@
 import { useState } from 'react'
-
 import { trpc } from '@/providers/trpc'
 import { isSafeUrl } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,31 +7,54 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Gift, Search, ExternalLink, ArrowLeft } from 'lucide-react'
 
+type FilterType = 'total' | 'assigned' | 'claimed' | 'purchased'
+
 export default function MasterList() {
   useAuth({ redirectOnUnauthenticated: true })
   const [search, setSearch] = useState('')
+  const [activeFilter, setActiveFilter] = useState<FilterType>('total')
 
   const { data: items = [], isLoading } = trpc.list.masterItems.useQuery()
   const { data: liveItems = [] } = trpc.list.allItems.useQuery()
 
   // Stats
   const totalItems = items.length
-  const assigned = (liveItems as any[]).length
-  const claimed  = (liveItems as any[]).filter((i: any) => i.claims?.length > 0).length
+  const assigned  = (liveItems as any[]).length
+  const claimed   = (liveItems as any[]).filter((i: any) => i.claims?.length > 0).length
   const purchased = (liveItems as any[]).filter((i: any) => i.claims?.some((c: any) => c.purchased)).length
 
-  const filtered = items.filter((item: any) =>
+  // Build lookup keys (sourceListId:name) from liveItems for filter matching
+  const assignedKeys  = new Set((liveItems as any[]).map((i: any) => `${i.listId}:${i.name}`))
+  const claimedKeys   = new Set((liveItems as any[]).filter((i: any) => i.claims?.length > 0).map((i: any) => `${i.listId}:${i.name}`))
+  const purchasedKeys = new Set((liveItems as any[]).filter((i: any) => i.claims?.some((c: any) => c.purchased)).map((i: any) => `${i.listId}:${i.name}`))
+
+  function applyFilter(list: any[]): any[] {
+    switch (activeFilter) {
+      case 'assigned':  return list.filter(i => assignedKeys.has(`${i.sourceListId}:${i.name}`))
+      case 'claimed':   return list.filter(i => claimedKeys.has(`${i.sourceListId}:${i.name}`))
+      case 'purchased': return list.filter(i => purchasedKeys.has(`${i.sourceListId}:${i.name}`))
+      default:          return list
+    }
+  }
+
+  const filtered = applyFilter(items).filter((item: any) =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
     (item.sourceListName ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  // Group by source list
   const grouped = filtered.reduce((acc: Record<string, any[]>, item: any) => {
     const key = item.sourceListName ?? 'No list'
     if (!acc[key]) acc[key] = []
     acc[key].push(item)
     return acc
   }, {})
+
+  const tiles: { key: FilterType; label: string; value: number; color: string }[] = [
+    { key: 'total',     label: 'Total items', value: totalItems, color: 'text-[#3D3632]' },
+    { key: 'assigned',  label: 'Assigned',    value: assigned,   color: 'text-[#3D3632]' },
+    { key: 'claimed',   label: 'Claimed',      value: claimed,    color: 'text-[#C67C5A]' },
+    { key: 'purchased', label: 'Purchased',    value: purchased,  color: 'text-[#5A8F6E]' },
+  ]
 
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
@@ -53,24 +75,25 @@ export default function MasterList() {
           </p>
         </div>
 
-        {/* Stats tiles */}
+        {/* Stat tiles — click to filter */}
         <div className="grid grid-cols-4 gap-3 mb-8">
-          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
-            <p className="text-2xl font-semibold text-[#3D3632]">{totalItems}</p>
-            <p className="text-xs text-[#6B6058] mt-0.5">Total items</p>
-          </div>
-          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
-            <p className="text-2xl font-semibold text-[#3D3632]">{assigned}</p>
-            <p className="text-xs text-[#6B6058] mt-0.5">Assigned</p>
-          </div>
-          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
-            <p className="text-2xl font-semibold text-[#C67C5A]">{claimed}</p>
-            <p className="text-xs text-[#6B6058] mt-0.5">Claimed</p>
-          </div>
-          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
-            <p className="text-2xl font-semibold text-[#5A8F6E]">{purchased}</p>
-            <p className="text-xs text-[#6B6058] mt-0.5">Purchased</p>
-          </div>
+          {tiles.map(tile => (
+            <button
+              key={tile.key}
+              onClick={() => setActiveFilter(activeFilter === tile.key ? 'total' : tile.key)}
+              className={`rounded-xl border p-4 text-center transition-all ${
+                activeFilter === tile.key
+                  ? 'border-[#C67C5A] bg-[#C67C5A]/5 ring-1 ring-[#C67C5A]'
+                  : 'border-[#E8E2DA] bg-white hover:border-[#D4CECA] hover:bg-[#F5F1EC]'
+              }`}
+            >
+              <p className={`text-2xl font-semibold ${tile.color}`}>{tile.value}</p>
+              <p className="text-xs text-[#6B6058] mt-0.5">{tile.label}</p>
+              {activeFilter === tile.key && (
+                <p className="text-[10px] text-[#C67C5A] mt-1 font-medium">Filtered</p>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Search */}
@@ -105,7 +128,9 @@ export default function MasterList() {
         )}
 
         {!isLoading && items.length > 0 && filtered.length === 0 && (
-          <p className="text-center text-sm text-[#A39B92] py-12">No items match your search.</p>
+          <p className="text-center text-sm text-[#A39B92] py-12">
+            No items match{activeFilter !== 'total' ? ` the "${tiles.find(t => t.key === activeFilter)?.label}" filter` : ''}{search ? ` your search` : ''}.
+          </p>
         )}
 
         <div className="space-y-8">
