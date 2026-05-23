@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { listItems, lists } from "@db/schema";
+import { listItems, lists, masterItems } from "@db/schema";
 import { eq, inArray } from "drizzle-orm";
 
 export const itemRouter = createRouter({
@@ -42,6 +42,22 @@ export const itemRouter = createRouter({
         isGroupGift: input.isGroupGift,
         targetPrice: input.targetPrice ? String(input.targetPrice) : null,
       }).returning({ id: listItems.id });
+
+      // Mirror to master list (persists even if removed from shared list)
+      await db.insert(masterItems).values({
+        ownerId: ctx.user.id,
+        name: input.name,
+        price: input.price ? String(input.price) : null,
+        quantity: input.quantity,
+        notes: input.notes || null,
+        purchaseUrl: input.purchaseUrl || null,
+        imageUrl: input.imageUrl || null,
+        isGroupGift: input.isGroupGift,
+        targetPrice: input.targetPrice ? String(input.targetPrice) : null,
+        sourceListId: input.listId,
+        sourceListName: list.title,
+      });
+
       return db.query.listItems.findFirst({
         where: eq(listItems.id, result[0].id),
         with: { claims: true, contributions: true },

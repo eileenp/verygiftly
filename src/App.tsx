@@ -11,6 +11,7 @@ import Privacy from './pages/Privacy'
 import Unclaim from './pages/Unclaim'
 import MarkPurchased from './pages/MarkPurchased'
 import ContributionManage from './pages/ContributionManage'
+import MasterList from './pages/MasterList'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/lists/:id/people" element={<PeopleAccess />} />
       <Route path="/lists/:id/access" element={<ListAccess />} />
       <Route path="/lists/:id/view" element={<ListView />} />
+      <Route path="/master" element={<MasterList />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/claim/:claimId" element={<Unclaim />} />

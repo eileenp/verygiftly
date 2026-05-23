@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { lists, coOwners, listItems, users, claims } from "@db/schema";
+import { lists, coOwners, listItems, users, claims, masterItems } from "@db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
 export const listRouter = createRouter({
@@ -182,6 +182,15 @@ export const listRouter = createRouter({
       await db.delete(claims).where(eq(claims.id, input.claimId));
       return { success: true };
     }),
+
+  // Get master list — permanent record of all items ever added
+  masterItems: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    return db.query.masterItems.findMany({
+      where: eq(masterItems.ownerId, ctx.user.id),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+  }),
 
   // Get all items across all lists (for master view)
   allItems: authedQuery.query(async ({ ctx }) => {

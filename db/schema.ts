@@ -92,6 +92,22 @@ export const coOwners = pgTable("co_owners", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const masterItems = pgTable("master_items", {
+  id: serial("id").primaryKey(),
+  ownerId: integer("ownerId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }),
+  quantity: integer("quantity").notNull().default(1),
+  notes: text("notes"),
+  purchaseUrl: text("purchaseUrl"),
+  imageUrl: text("imageUrl"),
+  isGroupGift: boolean("isGroupGift").notNull().default(false),
+  targetPrice: numeric("targetPrice", { precision: 10, scale: 2 }),
+  sourceListId: integer("sourceListId"),
+  sourceListName: varchar("sourceListName", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
   userId: integer("userId").notNull().unique(),
@@ -102,6 +118,7 @@ export const userSettings = pgTable("user_settings", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
+export type MasterItem = typeof masterItems.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type List = typeof lists.$inferSelect;

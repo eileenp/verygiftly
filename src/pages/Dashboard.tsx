@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, Link } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
 import { Navbar } from '@/components/Navbar'
@@ -231,10 +231,16 @@ export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }
           if (v === 'items') navigate('/dashboard/items')
           else navigate('/dashboard')
         }} className="mb-8">
-          <TabsList className="bg-[#F5F1EC] border border-[#E8E2DA]">
-            <TabsTrigger value="lists" className="data-[state=active]:bg-white data-[state=active]:text-[#3D3632]">My lists</TabsTrigger>
-            <TabsTrigger value="items" className="data-[state=active]:bg-white data-[state=active]:text-[#3D3632]">All my items</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-4">
+            <TabsList className="bg-[#F5F1EC] border border-[#E8E2DA]">
+              <TabsTrigger value="lists" className="data-[state=active]:bg-white data-[state=active]:text-[#3D3632]">My lists</TabsTrigger>
+              <TabsTrigger value="items" className="data-[state=active]:bg-white data-[state=active]:text-[#3D3632]">All my items</TabsTrigger>
+            </TabsList>
+            <Link to="/master" className="flex items-center gap-1.5 text-sm text-[#6B6058] hover:text-[#3D3632] border border-[#E8E2DA] rounded-lg px-3 py-1.5 bg-white hover:bg-[#F5F1EC] transition-colors shrink-0">
+              <Gift className="h-4 w-4" />
+              Master List
+            </Link>
+          </div>
         </Tabs>
 
         {activeTab === 'lists' && (
