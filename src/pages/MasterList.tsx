@@ -13,6 +13,13 @@ export default function MasterList() {
   const [search, setSearch] = useState('')
 
   const { data: items = [], isLoading } = trpc.list.masterItems.useQuery()
+  const { data: liveItems = [] } = trpc.list.allItems.useQuery()
+
+  // Stats
+  const totalItems = items.length
+  const assigned = (liveItems as any[]).length
+  const claimed  = (liveItems as any[]).filter((i: any) => i.claims?.length > 0).length
+  const purchased = (liveItems as any[]).filter((i: any) => i.claims?.some((c: any) => c.purchased)).length
 
   const filtered = items.filter((item: any) =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -44,6 +51,26 @@ export default function MasterList() {
           <p className="mt-1 text-sm text-[#A39B92]">
             Every gift ever added across all your lists — never deleted, never shared.
           </p>
+        </div>
+
+        {/* Stats tiles */}
+        <div className="grid grid-cols-4 gap-3 mb-8">
+          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
+            <p className="text-2xl font-semibold text-[#3D3632]">{totalItems}</p>
+            <p className="text-xs text-[#6B6058] mt-0.5">Total items</p>
+          </div>
+          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
+            <p className="text-2xl font-semibold text-[#3D3632]">{assigned}</p>
+            <p className="text-xs text-[#6B6058] mt-0.5">Assigned</p>
+          </div>
+          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
+            <p className="text-2xl font-semibold text-[#C67C5A]">{claimed}</p>
+            <p className="text-xs text-[#6B6058] mt-0.5">Claimed</p>
+          </div>
+          <div className="rounded-xl bg-white border border-[#E8E2DA] p-4 text-center">
+            <p className="text-2xl font-semibold text-[#5A8F6E]">{purchased}</p>
+            <p className="text-xs text-[#6B6058] mt-0.5">Purchased</p>
+          </div>
         </div>
 
         {/* Search */}
