@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && esbuild api/boot.ts --bundle --format=esm --outfile=dist/_worker.js --minify --banner:js=\"globalThis.process??={env:{}};\"",
+    "deploy": "npm run build && wrangler pages deploy",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "wrangler pages dev dist --compatibility-flag=nodejs_compat",
