@@ -9,7 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Gift, LogOut, Settings, User, LayoutDashboard } from 'lucide-react'
+import { LogOut, Settings, User, LayoutDashboard } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
@@ -19,8 +20,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-[#E8E2DA]/50 bg-[#FDFBF7]/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-2">
-          <Gift className="h-6 w-6 text-[#C67C5A]" />
-          <span className="font-serif text-xl font-semibold text-[#3D3632]">Gifsto</span>
+          <Logo className="h-9" />
         </Link>
 
         <div className="flex items-center gap-4">

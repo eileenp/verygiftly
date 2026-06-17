@@ -2,7 +2,9 @@ import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Navbar } from '@/components/Navbar'
+import { ScatterBackground } from '@/components/ScatterBackground'
 import { ListChecks, Share2, Gift, Eye, Users, ClipboardCheck } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function Home() {
@@ -56,8 +58,14 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden px-6 py-20 md:py-28">
-        <div className="mx-auto max-w-5xl text-center">
+      <ScatterBackground
+        as="section"
+        density="medium"
+        surface="transparent"
+        className="relative overflow-hidden px-6 py-20 md:py-28"
+        style={{ backgroundColor: '#FDFBF7' }}
+      >
+        <div className="mx-auto max-w-5xl text-center relative z-10">
           <h1 className="font-serif text-4xl font-bold tracking-tight text-[#3D3632] md:text-6xl">
             Make gifting effortless
           </h1>
@@ -89,7 +97,7 @@ export default function Home() {
             className="h-auto w-full object-cover"
           />
         </div>
-      </section>
+      </ScatterBackground>
 
       {/* How It Works */}
       <section id="how-it-works" className="bg-[#F5F1EC] px-6 py-20">
@@ -141,8 +149,14 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="bg-[#F5F1EC] px-6 py-20">
-        <div className="mx-auto max-w-2xl text-center">
+      <ScatterBackground
+        as="section"
+        density="sparse"
+        surface="transparent"
+        className="px-6 py-20"
+        style={{ backgroundColor: '#F5F1EC' }}
+      >
+        <div className="mx-auto max-w-2xl text-center relative z-10">
           <h2 className="font-serif text-3xl font-semibold text-[#3D3632]">
             Ready to make your wishlist?
           </h2>
@@ -157,15 +171,14 @@ export default function Home() {
             Create your first list
           </Button>
         </div>
-      </section>
+      </ScatterBackground>
 
       {/* Footer */}
       <footer className="bg-[#2D2A26] px-6 py-12">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-2">
-              <Gift className="h-5 w-5 text-[#D4A574]" />
-              <span className="font-serif text-lg text-[#FDFBF7]">Gifsto</span>
+            <div className="flex items-center">
+              <Logo className="h-8" />
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm text-[#A39B92]">
               <Link to="/privacy" className="hover:text-[#FDFBF7]">Privacy Policy</Link>
@@ -175,7 +188,7 @@ export default function Home() {
             </div>
           </div>
           <p className="mt-8 text-center text-xs text-[#6B6058]">
-            Gifsto. Built for thoughtful gifting.
+            VeryGiftly. Built for thoughtful gifting.
           </p>
         </div>
       </footer>

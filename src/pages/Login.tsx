@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { Session } from "@contracts/constants";
 
 function getOAuthUrl() {
@@ -32,9 +32,8 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Gift className="h-7 w-7 text-[#C67C5A]" />
-          <span className="font-serif text-2xl font-semibold text-[#3D3632]">Gifsto</span>
+        <div className="flex items-center justify-center mb-8">
+          <Logo className="h-14" />
         </div>
         <Card className="bg-white border-[#E8E2DA] shadow-lg">
           <CardHeader className="text-center pb-2">

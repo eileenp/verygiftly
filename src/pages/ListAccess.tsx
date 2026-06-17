@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Lock, ArrowRight } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 
 export default function ListAccess() {
   const { id } = useParams<{ id: string }>()
@@ -61,8 +62,8 @@ export default function ListAccess() {
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <span className="font-serif text-2xl font-semibold text-[#3D3632]">Gifsto</span>
+        <div className="flex items-center justify-center mb-8">
+          <Logo className="h-14" />
         </div>
         <Card className="bg-white border-[#E8E2DA] shadow-lg">
           <CardContent className="p-8">

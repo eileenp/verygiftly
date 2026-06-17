@@ -124,7 +124,7 @@ export const scrapeRouter = createRouter({
           redirect: "manual",
           headers: {
             "User-Agent":
-              "Mozilla/5.0 (compatible; Gifsto/1.0; +https://gifsto.pages.dev)",
+              "Mozilla/5.0 (compatible; VeryGiftly/1.0; +https://verygiftly.pages.dev)",
             Accept: "text/html,application/xhtml+xml",
           },
         });
