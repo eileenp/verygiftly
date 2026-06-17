@@ -1,8 +1,20 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { lists, coOwners, listItems, users, claims, masterItems } from "@db/schema";
+import { lists, coOwners, coOwnerInvites, listItems, claims, masterItems } from "@db/schema";
 import { eq, and, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { nanoid } from "nanoid";
+import { hashPassword } from "./lib/password";
+
+// Co-owner invites expire after this window. Limits the blast radius of a leaked
+// (but unaccepted) invite link. Enforced in code so no schema change is needed.
+const INVITE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
+function isInviteUsable(invite: { accepted: boolean; createdAt: Date }): boolean {
+  if (invite.accepted) return false;
+  return Date.now() - invite.createdAt.getTime() < INVITE_TTL_MS;
+}
 
 export const listRouter = createRouter({
   // Create a new list
@@ -10,7 +22,7 @@ export const listRouter = createRouter({
     .input(
       z.object({
         title: z.string().min(1).max(255),
-        password: z.string().min(1).max(255),
+        password: z.string().min(6).max(255),
         zelle: z.string().max(255).optional(),
         venmo: z.string().max(255).optional(),
         paypal: z.string().max(255).optional(),
@@ -20,7 +32,7 @@ export const listRouter = createRouter({
       const db = getDb();
       const result = await db.insert(lists).values({
         title: input.title,
-        password: input.password,
+        password: await hashPassword(input.password),
         ownerId: ctx.user.id,
         zelle: input.zelle || null,
         venmo: input.venmo || null,
@@ -72,7 +84,7 @@ export const listRouter = createRouter({
       z.object({
         id: z.number(),
         title: z.string().min(1).max(255).optional(),
-        password: z.string().min(1).max(255).optional(),
+        password: z.string().min(6).max(255).optional(),
         zelle: z.string().max(255).optional(),
         venmo: z.string().max(255).optional(),
         paypal: z.string().max(255).optional(),
@@ -91,7 +103,7 @@ export const listRouter = createRouter({
 
       const updateData: Record<string, unknown> = {};
       if (input.title !== undefined) updateData.title = input.title;
-      if (input.password !== undefined) updateData.password = input.password;
+      if (input.password !== undefined) updateData.password = await hashPassword(input.password);
       if (input.zelle !== undefined) updateData.zelle = input.zelle || null;
       if (input.venmo !== undefined) updateData.venmo = input.venmo || null;
       if (input.paypal !== undefined) updateData.paypal = input.paypal || null;
@@ -113,34 +125,133 @@ export const listRouter = createRouter({
       return { success: true };
     }),
 
-  // Invite co-owner
+  // Create a co-owner invite — returns a token for a shareable invite link.
+  // Does not look up the email, so it never reveals whether an account exists.
   inviteCoOwner: authedQuery
-    .input(z.object({ listId: z.number(), email: z.string().email() }))
+    .input(z.object({ listId: z.number(), email: z.string().email().optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       const list = await db.query.lists.findFirst({
         where: eq(lists.id, input.listId),
       });
-      if (!list || list.ownerId !== ctx.user.id) throw new Error("Unauthorized");
+      if (!list || list.ownerId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not your list" });
+      }
 
-      const invitedUser = await db.query.users.findFirst({
-        where: eq(users.email, input.email),
+      const token = nanoid(32);
+      await db.insert(coOwnerInvites).values({
+        listId: input.listId,
+        token,
+        email: input.email ? input.email.toLowerCase() : null,
+        invitedByUserId: ctx.user.id,
       });
-      if (!invitedUser) throw new Error("User not found");
+      return { token };
+    }),
 
-      const existing = await db.query.coOwners.findFirst({
+  // Owner: list pending (not-yet-accepted) invites for a list.
+  listInvites: authedQuery
+    .input(z.object({ listId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const list = await db.query.lists.findFirst({
+        where: eq(lists.id, input.listId),
+      });
+      if (!list || list.ownerId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not your list" });
+      }
+      return db.query.coOwnerInvites.findMany({
         where: and(
-          eq(coOwners.listId, input.listId),
-          eq(coOwners.userId, invitedUser.id),
+          eq(coOwnerInvites.listId, input.listId),
+          eq(coOwnerInvites.accepted, false),
+        ),
+        orderBy: (t, { desc }) => [desc(t.createdAt)],
+      });
+    }),
+
+  // Owner: revoke a pending invite.
+  revokeInvite: authedQuery
+    .input(z.object({ inviteId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const invite = await db.query.coOwnerInvites.findFirst({
+        where: eq(coOwnerInvites.id, input.inviteId),
+        with: { list: true },
+      });
+      if (!invite || invite.list.ownerId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not your invite" });
+      }
+      await db.delete(coOwnerInvites).where(eq(coOwnerInvites.id, input.inviteId));
+      return { success: true };
+    }),
+
+  // Invitee: view an invite's details before accepting.
+  getInvite: authedQuery
+    .input(z.object({ token: z.string().min(1).max(64) }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const invite = await db.query.coOwnerInvites.findFirst({
+        where: eq(coOwnerInvites.token, input.token),
+        with: { list: { columns: { id: true, title: true } }, invitedBy: { columns: { name: true } } },
+      });
+      if (!invite || !isInviteUsable(invite)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "This invitation is no longer valid." });
+      }
+      if (invite.email && invite.email !== (ctx.user.email ?? "").toLowerCase()) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This invitation was sent to a different email address.",
+        });
+      }
+      return {
+        listId: invite.list.id,
+        listTitle: invite.list.title,
+        invitedByName: invite.invitedBy?.name ?? null,
+      };
+    }),
+
+  // Invitee: accept an invite and become a co-owner.
+  acceptInvite: authedQuery
+    .input(z.object({ token: z.string().min(1).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const invite = await db.query.coOwnerInvites.findFirst({
+        where: eq(coOwnerInvites.token, input.token),
+      });
+      if (!invite || !isInviteUsable(invite)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "This invitation is no longer valid." });
+      }
+      if (invite.email && invite.email !== (ctx.user.email ?? "").toLowerCase()) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This invitation was sent to a different email address.",
+        });
+      }
+
+      // The list owner can't be their own co-owner.
+      const list = await db.query.lists.findFirst({ where: eq(lists.id, invite.listId) });
+      if (!list) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "This list no longer exists." });
+      }
+      if (list.ownerId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You already own this list." });
+      }
+
+      const already = await db.query.coOwners.findFirst({
+        where: and(
+          eq(coOwners.listId, invite.listId),
+          eq(coOwners.userId, ctx.user.id),
         ),
       });
-      if (existing) throw new Error("Already a co-owner");
+      if (!already) {
+        await db.insert(coOwners).values({ listId: invite.listId, userId: ctx.user.id });
+      }
 
-      await db.insert(coOwners).values({
-        listId: input.listId,
-        userId: invitedUser.id,
-      });
-      return { success: true };
+      await db
+        .update(coOwnerInvites)
+        .set({ accepted: true, acceptedByUserId: ctx.user.id, acceptedAt: new Date() })
+        .where(eq(coOwnerInvites.id, invite.id));
+
+      return { listId: invite.listId };
     }),
 
   // Remove co-owner
@@ -176,7 +287,6 @@ export const listRouter = createRouter({
       });
       if (!claim) throw new Error("Claim not found");
       if ((claim as any).item?.list?.ownerId !== ctx.user.id) {
-        const { TRPCError } = await import("@trpc/server");
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not your list" });
       }
       await db.delete(claims).where(eq(claims.id, input.claimId));

@@ -92,6 +92,22 @@ export const coOwners = pgTable("co_owners", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// Pending co-owner invitations. The owner generates a token (capability link);
+// the invitee accepts while authenticated. No user lookup at invite time, so
+// invitations don't reveal whether an email is registered.
+export const coOwnerInvites = pgTable("co_owner_invites", {
+  id: serial("id").primaryKey(),
+  listId: integer("listId").notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  // Optional restriction: if set, only a logged-in user with this email may accept.
+  email: varchar("email", { length: 320 }),
+  invitedByUserId: integer("invitedByUserId").notNull(),
+  accepted: boolean("accepted").notNull().default(false),
+  acceptedByUserId: integer("acceptedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+});
+
 export const masterItems = pgTable("master_items", {
   id: serial("id").primaryKey(),
   ownerId: integer("ownerId").notNull(),
@@ -127,4 +143,5 @@ export type Claim = typeof claims.$inferSelect;
 export type Contribution = typeof contributions.$inferSelect;
 export type ListAccess = typeof listAccess.$inferSelect;
 export type CoOwner = typeof coOwners.$inferSelect;
+export type CoOwnerInvite = typeof coOwnerInvites.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
@@ -80,6 +80,18 @@ function AvatarInitials({ name, index = 0 }: { name: string; index?: number }) {
 export default function Dashboard({ tab = 'lists' }: { tab?: 'lists' | 'items' }) {
   const navigate = useNavigate()
   const { user, isLoading: authLoading } = useAuth({ redirectOnUnauthenticated: true })
+
+  // An invitee who had to sign in to accept a co-owner invite lands here — send
+  // them back to the invite they came from.
+  useEffect(() => {
+    if (!user) return
+    const pending = localStorage.getItem('pending-invite')
+    if (pending) {
+      localStorage.removeItem('pending-invite')
+      navigate(`/invite/${pending}`)
+    }
+  }, [user, navigate])
+
   const [activeTab, setActiveTab] = useState<'lists' | 'items'>(tab)
   const [createOpen, setCreateOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<number | null>(null)

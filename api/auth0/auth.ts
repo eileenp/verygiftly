@@ -6,6 +6,7 @@ import { getSessionCookieOptions } from "../lib/cookies";
 import { Session } from "@contracts/constants";
 import { Errors } from "@contracts/errors";
 import { signSessionToken, verifySessionToken } from "./session";
+import { timingSafeEqualString } from "../lib/password";
 import { findUserByUnionId, upsertUser } from "../queries/users";
 import type { TokenResponse, UserProfile } from "./types";
 
@@ -82,8 +83,31 @@ export function createOAuthCallbackHandler() {
       return c.json({ error: "code and state are required" }, 400);
     }
 
+    // CSRF: `state` carries the redirect URI plus a nonce that must match the
+    // nonce set in the oauth_state cookie before the redirect to Auth0.
+    let redirectUri: string;
+    let stateNonce: string;
     try {
-      const redirectUri = atob(state);
+      const parsed = JSON.parse(atob(state));
+      redirectUri = parsed.r;
+      stateNonce = parsed.n;
+    } catch {
+      return c.json({ error: "Invalid state" }, 400);
+    }
+    const cookies = cookie.parse(c.req.raw.headers.get("cookie") || "");
+    const expectedNonce = cookies[Session.oauthStateCookie];
+    if (
+      !redirectUri ||
+      !stateNonce ||
+      !expectedNonce ||
+      !timingSafeEqualString(stateNonce, expectedNonce)
+    ) {
+      return c.json({ error: "Invalid or missing state" }, 403);
+    }
+    // One-time use: clear the nonce cookie.
+    setCookie(c, Session.oauthStateCookie, "", { path: "/", maxAge: 0 });
+
+    try {
       const tokenResp = await exchangeAuthCode(code, redirectUri);
       const profile = await getUserProfile(tokenResp.access_token);
 

@@ -5,7 +5,7 @@ import { getDb } from "./queries/connection";
 import { lists, listItems, claims, contributions, listAccess } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { hashPassword, verifyPassword } from "./lib/password";
+import { hashPassword, verifyPassword, timingSafeEqualString } from "./lib/password";
 import { checkRateLimit } from "./lib/rateLimit";
 
 function getClientIp(req: Request): string {
@@ -19,7 +19,10 @@ function getClientIp(req: Request): string {
 export const viewerRouter = createRouter({
   // Get a list by ID for public viewing — verifies password, excludes hash from response
   getList: publicQuery
-    .input(z.object({ id: z.number(), password: z.string().min(1).max(255) }))
+    .input(z.object({
+      id: z.number(),
+      password: z.string().min(1).max(255),
+    }))
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const ip = getClientIp(ctx.req);
@@ -49,10 +52,36 @@ export const viewerRouter = createRouter({
         with: {
           owner: { columns: { id: true, name: true } },
           items: { with: { claims: true, contributions: true } },
-          coOwners: { with: { user: true } },
+          coOwners: { columns: { id: true } },
         },
       });
-      return list;
+      if (!list) throw new TRPCError({ code: "NOT_FOUND", message: "Invalid list or password" });
+
+      // Sanitize claims/contributions: viewers must never see other people's
+      // identity (name/email) or their secret management tokens. We deliberately
+      // do NOT expose a "mine" flag derived from a caller-supplied email — that
+      // would be an oracle letting any viewer confirm whether a given email
+      // claimed an item. Callers identify their own claims via the management
+      // tokens issued at claim time (stored client-side).
+      return {
+        ...list,
+        items: list.items.map((item) => ({
+          ...item,
+          claims: item.claims.map((c) => ({
+            id: c.id,
+            itemId: c.itemId,
+            purchased: c.purchased,
+            createdAt: c.createdAt,
+          })),
+          contributions: item.contributions.map((c) => ({
+            id: c.id,
+            itemId: c.itemId,
+            amount: c.amount,
+            paid: c.paid,
+            createdAt: c.createdAt,
+          })),
+        })),
+      };
     }),
 
   // Verify password only (for the access gate page)
@@ -117,6 +146,7 @@ export const viewerRouter = createRouter({
         itemId: z.number(),
         name: z.string().min(1).max(255),
         email: z.string().email(),
+        password: z.string().min(1).max(255),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -130,6 +160,9 @@ export const viewerRouter = createRouter({
         with: { list: true, claims: true },
       });
       if (!item) throw new Error("Item not found");
+      // Require the list password — prevents enumerating item IDs to write claims
+      const pwOk = await verifyPassword(input.password, item.list.password);
+      if (!pwOk) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid list or password" });
       const claimedCount = item.claims.length;
       if (claimedCount >= item.quantity) throw new Error("Item already fully claimed");
 
@@ -165,7 +198,7 @@ export const viewerRouter = createRouter({
         where: eq(claims.id, input.claimId),
       });
       if (!claim) throw new Error("Claim not found");
-      if (!claim.token || claim.token !== input.token) {
+      if (!claim.token || !timingSafeEqualString(claim.token, input.token)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
       }
       await db.delete(claims).where(eq(claims.id, input.claimId));
@@ -181,7 +214,7 @@ export const viewerRouter = createRouter({
         where: eq(claims.id, input.claimId),
       });
       if (!claim) throw new Error("Claim not found");
-      if (!claim.token || claim.token !== input.token) {
+      if (!claim.token || !timingSafeEqualString(claim.token, input.token)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
       }
       await db.update(claims).set({ purchased: true }).where(eq(claims.id, input.claimId));
@@ -197,6 +230,7 @@ export const viewerRouter = createRouter({
         email: z.string().email(),
         amount: z.number().positive(),
         paid: z.boolean().default(false),
+        password: z.string().min(1).max(255),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -210,6 +244,9 @@ export const viewerRouter = createRouter({
         with: { list: true },
       });
       if (!item) throw new Error("Item not found");
+      // Require the list password — prevents enumerating item IDs to write contributions
+      const pwOk = await verifyPassword(input.password, item.list.password);
+      if (!pwOk) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid list or password" });
 
       const token = nanoid(32);
       const result = await db.insert(contributions).values({
@@ -252,7 +289,7 @@ export const viewerRouter = createRouter({
         where: eq(contributions.id, input.contributionId),
       });
       if (!contrib) throw new Error("Contribution not found");
-      if (!contrib.token || contrib.token !== input.token) {
+      if (!contrib.token || !timingSafeEqualString(contrib.token, input.token)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
       }
       await db
@@ -271,7 +308,7 @@ export const viewerRouter = createRouter({
         where: eq(contributions.id, input.contributionId),
       });
       if (!contrib) throw new Error("Contribution not found");
-      if (!contrib.token || contrib.token !== input.token) {
+      if (!contrib.token || !timingSafeEqualString(contrib.token, input.token)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
       }
       await db.delete(contributions).where(eq(contributions.id, input.contributionId));

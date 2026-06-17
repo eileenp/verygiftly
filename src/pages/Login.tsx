@@ -2,12 +2,21 @@ import { Link } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift } from "lucide-react";
+import { Session } from "@contracts/constants";
 
 function getOAuthUrl() {
   const domain = import.meta.env.VITE_AUTH0_DOMAIN;
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
-  const state = btoa(redirectUri);
+
+  // CSRF protection: bind a random nonce to this login attempt. The same nonce
+  // travels in `state` (echoed by Auth0) and in a SameSite=Lax cookie; the
+  // callback rejects the request unless both match.
+  const nonce = crypto.randomUUID();
+  document.cookie = `${Session.oauthStateCookie}=${nonce}; path=/; max-age=600; SameSite=Lax${
+    window.location.protocol === "https:" ? "; Secure" : ""
+  }`;
+  const state = btoa(JSON.stringify({ r: redirectUri, n: nonce }));
 
   const url = new URL(`https://${domain}/authorize`);
   url.searchParams.set("client_id", clientId);
@@ -51,12 +60,15 @@ export default function Login() {
         </Card>
         <p className="mt-6 text-center text-sm text-[#6B6058]">
           Don't have an account?{" "}
-          <a
-            href={getOAuthUrl()}
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = getOAuthUrl();
+            }}
             className="text-[#C67C5A] hover:underline"
           >
             Create one
-          </a>
+          </button>
         </p>
       </div>
     </div>

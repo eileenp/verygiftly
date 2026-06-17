@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
 import { Navbar } from '@/components/Navbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Gift, Heart, Bookmark } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { ArrowLeft, Gift, Heart, Bookmark, UserPlus, Copy, X, Check } from 'lucide-react'
 
 function getInitials(name: string) {
   return name
@@ -27,6 +29,41 @@ export default function PeopleAccess() {
     { id: listId },
     { enabled: !!user && !!listId }
   )
+
+  const utils = trpc.useUtils()
+  const isOwner = !!list && !!user && list.ownerId === user.id
+
+  const invitesQuery = trpc.list.listInvites.useQuery(
+    { listId },
+    { enabled: isOwner }
+  )
+
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const createInvite = trpc.list.inviteCoOwner.useMutation({
+    onSuccess: (data) => {
+      setInviteLink(`${window.location.origin}/invite/${data.token}`)
+      setInviteEmail('')
+      invitesQuery.refetch()
+    },
+  })
+
+  const revokeInvite = trpc.list.revokeInvite.useMutation({
+    onSuccess: () => invitesQuery.refetch(),
+  })
+
+  const removeCoOwner = trpc.list.removeCoOwner.useMutation({
+    onSuccess: () => utils.list.get.invalidate({ id: listId }),
+  })
+
+  function copyInviteLink() {
+    if (!inviteLink) return
+    navigator.clipboard.writeText(inviteLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   if (isLoading || !list) {
     return (
@@ -98,6 +135,102 @@ export default function PeopleAccess() {
           </p>
         </div>
 
+        {isOwner && (
+          <Card className="border-[#E8E2DA] bg-white mt-6">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-[#C67C5A]" />
+                <h2 className="font-serif text-lg font-semibold text-[#3D3632]">Co-owners</h2>
+              </div>
+              <p className="mt-1 text-sm text-[#6B6058]">
+                Co-owners can add, edit, and organize items on this list. Share an invite link — they'll accept it while signed in.
+              </p>
+
+              {/* Current co-owners */}
+              {(list.coOwners?.length ?? 0) > 0 && (
+                <div className="mt-4 space-y-2">
+                  {list.coOwners.map((co: any) => (
+                    <div key={co.id} className="flex items-center justify-between rounded-lg border border-[#E8E2DA] px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[#3D3632] truncate">{co.user?.name || co.user?.email || 'Co-owner'}</p>
+                        {co.user?.email && <p className="text-xs text-[#A39B92] truncate">{co.user.email}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCoOwner.mutate({ listId, userId: co.userId })}
+                        disabled={removeCoOwner.isPending}
+                        className="inline-flex items-center gap-1 text-xs text-[#A39B92] hover:text-[#B85450]"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Create an invite */}
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <Input
+                  type="email"
+                  placeholder="Restrict to an email (optional)"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
+                />
+                <Button
+                  onClick={() => createInvite.mutate(inviteEmail.trim() ? { listId, email: inviteEmail.trim() } : { listId })}
+                  disabled={createInvite.isPending}
+                  className="bg-[#C67C5A] text-white hover:bg-[#B56A48] shrink-0"
+                >
+                  {createInvite.isPending ? 'Creating…' : 'Create invite link'}
+                </Button>
+              </div>
+              {createInvite.error && (
+                <p className="mt-2 text-sm text-[#B85450]">{createInvite.error.message}</p>
+              )}
+              {inviteLink && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#F5F1EC] px-3 py-2">
+                  <p className="flex-1 truncate text-xs text-[#6B6058]">{inviteLink}</p>
+                  <button
+                    type="button"
+                    onClick={copyInviteLink}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#C67C5A] hover:text-[#B56A48] shrink-0"
+                  >
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              )}
+
+              {/* Pending invites */}
+              {(invitesQuery.data?.length ?? 0) > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#A39B92]">Pending invites</p>
+                  <div className="mt-2 space-y-2">
+                    {invitesQuery.data!.map((inv: any) => (
+                      <div key={inv.id} className="flex items-center justify-between rounded-lg border border-[#E8E2DA] px-3 py-2">
+                        <p className="text-sm text-[#6B6058] truncate">
+                          {inv.email || 'Anyone with the link'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => revokeInvite.mutate({ inviteId: inv.id })}
+                          disabled={revokeInvite.isPending}
+                          className="inline-flex items-center gap-1 text-xs text-[#A39B92] hover:text-[#B85450]"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Revoke
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {!hasPeople && (
           <Card className="border-[#E8E2DA] bg-white mt-6">
             <CardContent className="flex flex-col items-center py-12 text-center">
@@ -105,7 +238,12 @@ export default function PeopleAccess() {
               <Button
                 onClick={() => {
                   const url = `${window.location.origin}/lists/${list.id}/access`
-                  navigator.clipboard.writeText(`${url}\nPassword: ${list.password}`)
+                  // Never copy the stored password: it's a one-way hash. Share the
+                  // link and tell people the password you chose separately.
+                  const isHashed = list.password?.startsWith('pbkdf2:') ?? true
+                  navigator.clipboard.writeText(
+                    isHashed ? url : `${url}\nPassword: ${list.password}`
+                  )
                 }}
                 className="mt-4 bg-[#C67C5A] text-white hover:bg-[#B56A48]"
               >

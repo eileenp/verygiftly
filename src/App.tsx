@@ -12,6 +12,7 @@ import Unclaim from './pages/Unclaim'
 import MarkPurchased from './pages/MarkPurchased'
 import ContributionManage from './pages/ContributionManage'
 import MasterList from './pages/MasterList'
+import Invite from './pages/Invite'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/claim/:claimId" element={<Unclaim />} />
       <Route path="/purchased/:claimId" element={<MarkPurchased />} />
       <Route path="/contribution/:contributionId" element={<ContributionManage />} />
+      <Route path="/invite/:token" element={<Invite />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

@@ -18,6 +18,16 @@ function fromHex(hex: string): Uint8Array {
   return new Uint8Array(bytes)
 }
 
+// Constant-time string comparison — avoids leaking match progress via timing.
+export function timingSafeEqualString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
+}
+
 async function deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -42,8 +52,8 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(plaintext: string, stored: string): Promise<boolean> {
   if (!stored.startsWith('pbkdf2:')) {
-    // Legacy plaintext — exact match only
-    return stored === plaintext
+    // Legacy plaintext — exact match only (constant-time)
+    return timingSafeEqualString(stored, plaintext)
   }
   const parts = stored.split(':')
   if (parts.length !== 4) return false
@@ -52,5 +62,5 @@ export async function verifyPassword(plaintext: string, stored: string): Promise
   if (!Number.isFinite(iterations) || iterations < 1) return false
   const salt = fromHex(saltHex)
   const hash = await deriveKey(plaintext, salt, iterations)
-  return hash === storedHash
+  return timingSafeEqualString(hash, storedHash)
 }

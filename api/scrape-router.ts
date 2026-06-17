@@ -61,15 +61,39 @@ function isSafeUrl(url: string): boolean {
   try {
     const u = new URL(url);
     if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-    const host = u.hostname.toLowerCase();
-    // Block private/internal IP ranges
+    let host = u.hostname.toLowerCase();
+
+    // IPv6 literals arrive wrapped in brackets — strip and block loopback,
+    // unique-local (fc00::/7), and link-local (fe80::/10) ranges.
+    if (host.startsWith("[") && host.endsWith("]")) {
+      const v6 = host.slice(1, -1);
+      if (
+        v6 === "::1" ||
+        v6 === "::" ||
+        v6.startsWith("fc") ||
+        v6.startsWith("fd") ||
+        v6.startsWith("fe8") ||
+        v6.startsWith("fe9") ||
+        v6.startsWith("fea") ||
+        v6.startsWith("feb") ||
+        v6.startsWith("::ffff:") // IPv4-mapped IPv6
+      ) {
+        return false;
+      }
+      return true;
+    }
+
+    // Block private, loopback, link-local (incl. cloud metadata 169.254.169.254),
+    // CGNAT, and internal hostnames.
     if (
       host === "localhost" ||
       host.startsWith("127.") ||
       host.startsWith("10.") ||
       host.startsWith("192.168.") ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-      host === "0.0.0.0" ||
+      host.startsWith("169.254.") ||
+      host.startsWith("0.") ||
+      /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) ||
       host.endsWith(".internal") ||
       host.endsWith(".local")
     ) {
@@ -95,6 +119,9 @@ export const scrapeRouter = createRouter({
         const timeout = setTimeout(() => controller.abort(), 8000);
         const resp = await fetch(input.url, {
           signal: controller.signal,
+          // Do not follow redirects: a public URL could 3xx into a private/internal
+          // address, bypassing isSafeUrl. A redirect therefore fails closed below.
+          redirect: "manual",
           headers: {
             "User-Agent":
               "Mozilla/5.0 (compatible; Gifsto/1.0; +https://gifsto.pages.dev)",
@@ -102,6 +129,10 @@ export const scrapeRouter = createRouter({
           },
         });
         clearTimeout(timeout);
+
+        if (resp.status >= 300 && resp.status < 400) {
+          throw new Error("URL redirected — not allowed");
+        }
 
         const contentType = resp.headers.get("content-type") ?? "";
         if (!contentType.includes("text/html")) {

@@ -8,10 +8,13 @@ function isLocalhost(headers: Headers): boolean {
 export function getSessionCookieOptions(headers: Headers): CookieOptions {
   const localhost = isLocalhost(headers);
 
+  // SameSite=Lax is sufficient: the OAuth callback is a top-level GET navigation
+  // (Lax cookies are sent) and the SPA calls the API same-origin. Avoiding "None"
+  // removes the cross-site CSRF surface on authenticated mutations.
   return {
     httpOnly: true,
     path: "/",
-    sameSite: localhost ? "Lax" : "None",
+    sameSite: "Lax",
     secure: !localhost,
   };
 }

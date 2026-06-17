@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { users, lists, listItems, claims, contributions, listAccess, coOwners, masterItems } from "./schema";
+import { users, lists, listItems, claims, contributions, listAccess, coOwners, coOwnerInvites, masterItems } from "./schema";
 
 export const usersRelations = relations(users, ({ many }) => ({
   lists: many(lists),
@@ -34,6 +34,11 @@ export const listAccessRelations = relations(listAccess, ({ one }) => ({
 export const coOwnersRelations = relations(coOwners, ({ one }) => ({
   list: one(lists, { fields: [coOwners.listId], references: [lists.id] }),
   user: one(users, { fields: [coOwners.userId], references: [users.id] }),
+}));
+
+export const coOwnerInvitesRelations = relations(coOwnerInvites, ({ one }) => ({
+  list: one(lists, { fields: [coOwnerInvites.listId], references: [lists.id] }),
+  invitedBy: one(users, { fields: [coOwnerInvites.invitedByUserId], references: [users.id] }),
 }));
 
 export const masterItemsRelations = relations(masterItems, ({ one }) => ({

@@ -47,18 +47,15 @@ export default function ListView() {
   const [quickAmount, setQuickAmount] = useState<number | null>(null)
   const [hasPaid, setHasPaid] = useState(false)
 
-  const [viewerEmail, setViewerEmail] = useState('')
-  // Map of itemId → { claimId, token } stored locally so user can unclaim
+  // Map of itemId → { claimId, token } stored locally so user can unclaim.
+  // This is the ONLY way a viewer's own claims are identified — the server never
+  // discloses who claimed what, so "mine" is proven by the per-claim token.
   const [myClaimTokens, setMyClaimTokens] = useState<Record<number, { claimId: number; token: string }>>({})
-  const [emailPrompt, setEmailPrompt] = useState('')
-  const [emailPromptDismissed, setEmailPromptDismissed] = useState(false)
 
-  // Get stored password, viewer email, and any saved claim tokens
+  // Get stored password and any saved claim tokens
   useEffect(() => {
     const stored = sessionStorage.getItem(`list-password-${listId}`)
     if (stored) setPassword(stored)
-    const email = localStorage.getItem('viewer-email')
-    if (email) setViewerEmail(email)
     const tokens = localStorage.getItem('claim-tokens')
     if (tokens) {
       try { setMyClaimTokens(JSON.parse(tokens)) } catch {}
@@ -138,12 +135,11 @@ export default function ListView() {
   function handleClaim() {
     if (!selectedItem || !claimerName.trim() || !claimerEmail.trim()) return
     const email = claimerEmail.trim()
-    localStorage.setItem('viewer-email', email)
-    setViewerEmail(email)
     claimItem.mutate({
       itemId: selectedItem.id,
       name: claimerName.trim(),
       email,
+      password,
     })
   }
 
@@ -155,6 +151,7 @@ export default function ListView() {
       email: contributorEmail.trim(),
       amount: parseFloat(amount),
       paid: hasPaid,
+      password,
     })
   }
 
@@ -218,22 +215,6 @@ export default function ListView() {
   }) || []
   const allClaimed = availableItems.length === 0 && totalItems > 0 && !list.items?.some((i: any) => i.isGroupGift)
 
-  // Show the "enter your email" prompt when:
-  // – viewer hasn't identified themselves yet (no email, no local tokens)
-  // – at least one item on the list has been claimed
-  const hasAnyClaimedItems = list.items?.some((i: any) => (i.claims?.length || 0) > 0) ?? false
-  const hasLocalTokens = Object.keys(myClaimTokens).length > 0
-  const showEmailPrompt = !viewerEmail && !hasLocalTokens && hasAnyClaimedItems && !emailPromptDismissed
-
-  function handleEmailPromptSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const email = emailPrompt.trim()
-    if (!email) return
-    localStorage.setItem('viewer-email', email)
-    setViewerEmail(email)
-    setEmailPromptDismissed(true)
-  }
-
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
       <nav className="sticky top-0 z-50 w-full border-b border-[#E8E2DA]/50 bg-[#FDFBF7]/85 backdrop-blur-xl">
@@ -274,41 +255,10 @@ export default function ListView() {
           </Card>
         )}
 
-        {showEmailPrompt && (
-          <div className="mb-4 rounded-xl border border-[#E8E2DA] bg-white px-5 py-4">
-            <p className="text-sm font-medium text-[#3D3632]">Already claimed something?</p>
-            <p className="mt-0.5 text-xs text-[#A39B92]">Enter your email to see your claimed items at the top.</p>
-            <form onSubmit={handleEmailPromptSubmit} className="mt-3 flex gap-2">
-              <Input
-                type="email"
-                placeholder="your@email.com"
-                value={emailPrompt}
-                onChange={(e) => setEmailPrompt(e.target.value)}
-                className="h-8 text-sm border-[#E8E2DA] focus-visible:ring-[#C67C5A]"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!emailPrompt.trim()}
-                className="h-8 bg-[#C67C5A] text-white hover:bg-[#B56A48] shrink-0"
-              >
-                Show mine
-              </Button>
-              <button
-                type="button"
-                onClick={() => setEmailPromptDismissed(true)}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-xs text-[#A39B92] hover:text-[#6B6058] shrink-0"
-              >
-                Dismiss
-              </button>
-            </form>
-          </div>
-        )}
-
         <div className="space-y-4">
           {[...(list.items ?? [])].sort((a: any, b: any) => {
-            const aMine = !!myClaimTokens[a.id] || (viewerEmail && a.claims?.some((c: any) => c.email === viewerEmail))
-            const bMine = !!myClaimTokens[b.id] || (viewerEmail && b.claims?.some((c: any) => c.email === viewerEmail))
+            const aMine = !!myClaimTokens[a.id]
+            const bMine = !!myClaimTokens[b.id]
             if (aMine && !bMine) return -1
             if (!aMine && bMine) return 1
             return 0
@@ -318,7 +268,7 @@ export default function ListView() {
             const isFullyClaimed = !item.isGroupGift && claims.length >= item.quantity
             const isPurchased = claims.some((c: any) => c.purchased)
             const isGroup = item.isGroupGift
-            const isClaimedByMe = !!myClaimTokens[item.id] || (!!viewerEmail && claims.some((c: any) => c.email === viewerEmail))
+            const isClaimedByMe = !!myClaimTokens[item.id]
             const totalContributed = contributions.reduce((acc: number, c: any) => acc + parseFloat(c.amount || 0), 0)
             const target = item.targetPrice ? parseFloat(item.targetPrice) : 0
             const progress = target > 0 ? Math.min((totalContributed / target) * 100, 100) : 0
