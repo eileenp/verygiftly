@@ -43,7 +43,7 @@ export const lists = pgTable("lists", {
 
 export const listItems = pgTable("list_items", {
   id: serial("id").primaryKey(),
-  listId: integer("listId").notNull(),
+  listId: integer("listId").notNull().references(() => lists.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   price: numeric("price", { precision: 10, scale: 2 }),
   quantity: integer("quantity").notNull().default(1),
@@ -58,7 +58,7 @@ export const listItems = pgTable("list_items", {
 
 export const claims = pgTable("claims", {
   id: serial("id").primaryKey(),
-  itemId: integer("itemId").notNull(),
+  itemId: integer("itemId").notNull().references(() => listItems.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   purchased: boolean("purchased").notNull().default(false),
@@ -68,7 +68,7 @@ export const claims = pgTable("claims", {
 
 export const contributions = pgTable("contributions", {
   id: serial("id").primaryKey(),
-  itemId: integer("itemId").notNull(),
+  itemId: integer("itemId").notNull().references(() => listItems.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
@@ -79,7 +79,7 @@ export const contributions = pgTable("contributions", {
 
 export const listAccess = pgTable("list_access", {
   id: serial("id").primaryKey(),
-  listId: integer("listId").notNull(),
+  listId: integer("listId").notNull().references(() => lists.id, { onDelete: "cascade" }),
   email: varchar("email", { length: 320 }).notNull(),
   name: varchar("name", { length: 255 }),
   saved: boolean("saved").notNull().default(false),
@@ -89,7 +89,7 @@ export const listAccess = pgTable("list_access", {
 
 export const coOwners = pgTable("co_owners", {
   id: serial("id").primaryKey(),
-  listId: integer("listId").notNull(),
+  listId: integer("listId").notNull().references(() => lists.id, { onDelete: "cascade" }),
   userId: integer("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (t) => ({
@@ -102,7 +102,7 @@ export const coOwners = pgTable("co_owners", {
 // invitations don't reveal whether an email is registered.
 export const coOwnerInvites = pgTable("co_owner_invites", {
   id: serial("id").primaryKey(),
-  listId: integer("listId").notNull(),
+  listId: integer("listId").notNull().references(() => lists.id, { onDelete: "cascade" }),
   token: varchar("token", { length: 64 }).notNull().unique(),
   // Optional restriction: if set, only a logged-in user with this email may accept.
   email: varchar("email", { length: 320 }),
@@ -124,7 +124,9 @@ export const masterItems = pgTable("master_items", {
   imageUrl: text("imageUrl"),
   isGroupGift: boolean("isGroupGift").notNull().default(false),
   targetPrice: numeric("targetPrice", { precision: 10, scale: 2 }),
-  sourceListId: integer("sourceListId"),
+  // Master items are a permanent record, so a deleted source list nulls this ref
+  // rather than removing the row.
+  sourceListId: integer("sourceListId").references(() => lists.id, { onDelete: "set null" }),
   sourceListName: varchar("sourceListName", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

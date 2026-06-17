@@ -18,6 +18,17 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+// Security headers on every response. Referrer-Policy: no-referrer keeps
+// capability URLs (the ?p= list-password magic link, /invite/:token) from
+// leaking via the Referer header to external image/purchase-link domains.
+app.use("*", async (c, next) => {
+  await next();
+  c.header("Referrer-Policy", "no-referrer");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+});
+
 app.use(bodyLimit({ maxSize: 1 * 1024 * 1024 }));
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.use("/api/trpc/*", async (c) => {

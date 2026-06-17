@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { lists, coOwners, coOwnerInvites, listItems, claims, contributions, listAccess, masterItems } from "@db/schema";
+import { lists, coOwners, coOwnerInvites, listItems, claims, masterItems } from "@db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
@@ -122,22 +122,9 @@ export const listRouter = createRouter({
       });
       if (!existing || existing.ownerId !== ctx.user.id) throw new Error("Unauthorized");
 
-      // No FK cascades in the schema, so clean up dependent rows explicitly to
-      // avoid orphaned claims/contributions/co-owners/invites/access records.
-      // (master_items are a deliberate permanent record and are left intact.)
-      const items = await db.query.listItems.findMany({
-        where: eq(listItems.listId, input.id),
-        columns: { id: true },
-      });
-      const itemIds = items.map((i) => i.id);
-      if (itemIds.length > 0) {
-        await db.delete(claims).where(inArray(claims.itemId, itemIds));
-        await db.delete(contributions).where(inArray(contributions.itemId, itemIds));
-        await db.delete(listItems).where(eq(listItems.listId, input.id));
-      }
-      await db.delete(coOwners).where(eq(coOwners.listId, input.id));
-      await db.delete(coOwnerInvites).where(eq(coOwnerInvites.listId, input.id));
-      await db.delete(listAccess).where(eq(listAccess.listId, input.id));
+      // ON DELETE CASCADE foreign keys remove the list's items, claims,
+      // contributions, co-owners, invites, and access records atomically in a
+      // single statement. master_items keep their row with sourceListId nulled.
       await db.delete(lists).where(eq(lists.id, input.id));
       return { success: true };
     }),

@@ -7,13 +7,20 @@ import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { hashPassword, verifyPassword, timingSafeEqualString } from "./lib/password";
 import { checkRateLimit } from "./lib/rateLimit";
+import { env } from "./lib/env";
 
 function getClientIp(req: Request): string {
-  return (
-    req.headers.get("CF-Connecting-IP") ||
-    req.headers.get("X-Forwarded-For")?.split(",")[0].trim() ||
-    "unknown"
-  );
+  // Behind Cloudflare, CF-Connecting-IP is set by the edge and is trustworthy.
+  // X-Forwarded-For is client-supplied and spoofable, so only honor it outside
+  // production (local dev) — never in prod, where a forged header could mint
+  // unlimited rate-limit buckets and defeat brute-force protection.
+  const cf = req.headers.get("CF-Connecting-IP");
+  if (cf) return cf;
+  if (!env.isProduction) {
+    const xff = req.headers.get("X-Forwarded-For")?.split(",")[0].trim();
+    if (xff) return xff;
+  }
+  return "unknown";
 }
 
 export const viewerRouter = createRouter({
