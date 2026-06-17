@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { lists, coOwners, coOwnerInvites, listItems, claims, masterItems } from "@db/schema";
+import { lists, coOwners, coOwnerInvites, listItems, claims, contributions, listAccess, masterItems } from "@db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
@@ -121,6 +121,23 @@ export const listRouter = createRouter({
         where: eq(lists.id, input.id),
       });
       if (!existing || existing.ownerId !== ctx.user.id) throw new Error("Unauthorized");
+
+      // No FK cascades in the schema, so clean up dependent rows explicitly to
+      // avoid orphaned claims/contributions/co-owners/invites/access records.
+      // (master_items are a deliberate permanent record and are left intact.)
+      const items = await db.query.listItems.findMany({
+        where: eq(listItems.listId, input.id),
+        columns: { id: true },
+      });
+      const itemIds = items.map((i) => i.id);
+      if (itemIds.length > 0) {
+        await db.delete(claims).where(inArray(claims.itemId, itemIds));
+        await db.delete(contributions).where(inArray(contributions.itemId, itemIds));
+        await db.delete(listItems).where(eq(listItems.listId, input.id));
+      }
+      await db.delete(coOwners).where(eq(coOwners.listId, input.id));
+      await db.delete(coOwnerInvites).where(eq(coOwnerInvites.listId, input.id));
+      await db.delete(listAccess).where(eq(listAccess.listId, input.id));
       await db.delete(lists).where(eq(lists.id, input.id));
       return { success: true };
     }),
@@ -196,11 +213,21 @@ export const listRouter = createRouter({
       if (!invite || !isInviteUsable(invite)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "This invitation is no longer valid." });
       }
-      if (invite.email && invite.email !== (ctx.user.email ?? "").toLowerCase()) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "This invitation was sent to a different email address.",
-        });
+      if (invite.email) {
+        if (invite.email !== (ctx.user.email ?? "").toLowerCase()) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This invitation was sent to a different email address.",
+          });
+        }
+        // Email-restricted invites require a verified address, so the restriction
+        // can't be bypassed by registering an account claiming someone's email.
+        if (!ctx.user.emailVerified) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Please verify your email address before accepting this invitation.",
+          });
+        }
       }
       return {
         listId: invite.list.id,
@@ -220,11 +247,21 @@ export const listRouter = createRouter({
       if (!invite || !isInviteUsable(invite)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "This invitation is no longer valid." });
       }
-      if (invite.email && invite.email !== (ctx.user.email ?? "").toLowerCase()) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "This invitation was sent to a different email address.",
-        });
+      if (invite.email) {
+        if (invite.email !== (ctx.user.email ?? "").toLowerCase()) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This invitation was sent to a different email address.",
+          });
+        }
+        // Email-restricted invites require a verified address, so the restriction
+        // can't be bypassed by registering an account claiming someone's email.
+        if (!ctx.user.emailVerified) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Please verify your email address before accepting this invitation.",
+          });
+        }
       }
 
       // The list owner can't be their own co-owner.
@@ -243,7 +280,12 @@ export const listRouter = createRouter({
         ),
       });
       if (!already) {
-        await db.insert(coOwners).values({ listId: invite.listId, userId: ctx.user.id });
+        // onConflictDoNothing + the unique(listId,userId) index make this safe
+        // even if two accepts race past the check above.
+        await db
+          .insert(coOwners)
+          .values({ listId: invite.listId, userId: ctx.user.id })
+          .onConflictDoNothing();
       }
 
       await db

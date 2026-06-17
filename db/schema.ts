@@ -8,6 +8,7 @@ import {
   numeric,
   boolean,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["user", "admin"]);
@@ -17,6 +18,7 @@ export const users = pgTable("users", {
   unionId: varchar("unionId", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }),
   email: varchar("email", { length: 320 }),
+  emailVerified: boolean("emailVerified").notNull().default(false),
   avatar: text("avatar"),
   role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -90,7 +92,10 @@ export const coOwners = pgTable("co_owners", {
   listId: integer("listId").notNull(),
   userId: integer("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  // One co-owner row per (list, user) — guards against concurrent invite accepts.
+  uniqueListUser: unique("co_owners_list_user_unique").on(t.listId, t.userId),
+}));
 
 // Pending co-owner invitations. The owner generates a token (capability link);
 // the invitee accepts while authenticated. No user lookup at invite time, so

@@ -116,6 +116,7 @@ export function createOAuthCallbackHandler() {
         name: profile.name,
         avatar: profile.picture,
         email: profile.email,
+        emailVerified: profile.email_verified ?? false,
         lastSignInAt: new Date(),
       });
 
