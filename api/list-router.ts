@@ -47,13 +47,13 @@ export const listRouter = createRouter({
     const ownedLists = await db.query.lists.findMany({
       where: eq(lists.ownerId, ctx.user.id),
       with: {
-        items: { with: { claims: true, contributions: true } },
+        items: { with: { claims: { columns: { token: false } }, contributions: { columns: { token: false } } } },
         accessRecords: true,
       },
     });
     const coOwned = await db.query.coOwners.findMany({
       where: eq(coOwners.userId, ctx.user.id),
-      with: { list: { with: { items: { with: { claims: true, contributions: true } }, accessRecords: true } } },
+      with: { list: { with: { items: { with: { claims: { columns: { token: false } }, contributions: { columns: { token: false } } } }, accessRecords: true } } },
     });
     return { owned: ownedLists, coOwned: coOwned.map((c) => c.list) };
   }),
@@ -66,7 +66,7 @@ export const listRouter = createRouter({
       const list = await db.query.lists.findFirst({
         where: eq(lists.id, input.id),
         with: {
-          items: { with: { claims: true, contributions: true } },
+          items: { with: { claims: { columns: { token: false } }, contributions: { columns: { token: false } } } },
           accessRecords: true,
           coOwners: { with: { user: true } },
         },
@@ -358,8 +358,8 @@ export const listRouter = createRouter({
       where: inArray(listItems.listId, listIds),
       with: {
         list: true,
-        claims: true,
-        contributions: true,
+        claims: { columns: { token: false } },
+        contributions: { columns: { token: false } },
       },
     });
   }),
