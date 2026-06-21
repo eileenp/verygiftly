@@ -2,3 +2,7 @@ name = "verygiftly"
 pages_build_output_dir = "dist"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+
+[vars]
+VITE_AUTH0_DOMAIN = "wishwell.us.auth0.com"
+VITE_AUTH0_CLIENT_ID = "mlHIP2tGATZBCjWq6EAhjHnSLqsQudMW"
